@@ -29,7 +29,7 @@ Everything runs on your machine (SQLite). No cloud EHR or HIPAA certification is
 
 ## Run the app
 
-Cohort stats (`js/researchData.js`) and `research-figures/` are **already in the repo**—you do not need raw data files to try the website.
+HearHer is a **backend + browser UI**. Install dependencies, start the API server, then open the site in your browser. Cohort stats and Research figures are **already in the repo**—no `dataset/` download required to try it.
 
 ```bash
 cd patient-doctor-portal
@@ -37,17 +37,7 @@ python3 -m pip install -r requirements-api.txt
 python3 server.py
 ```
 
-Open **http://127.0.0.1:8000** and register as a patient and/or clinician.
-
-Use **`python3 server.py`** rather than a static file server so APIs and Research figures work. Setup details: [patient-doctor-portal/README.md](patient-doctor-portal/README.md).
-
-### Files kept out of git
-
-| Path | When you need it |
-|------|------------------|
-| `patient-doctor-portal/data/` | Created automatically on first run (SQLite + CSV exports) |
-| `patient-doctor-portal/.env` | Optional — copy from `.env.example` to enable OpenAI support chat |
-| `dataset/` | Only if you want to **re-run** analysis from raw files ([official download](https://entuedu-my.sharepoint.com/:f:/g/personal/bsclub-biohack_e_ntu_edu_sg/IgDu4xUT2v2MRIVfnFuXmmSwAf3BwLHa0QjqJ5TzpMMg2Vg?e=uogCWv)) |
+Open **http://127.0.0.1:8000** and register as a patient and/or clinician. The same command serves the UI, accounts, check-ins (saved under `data/`), and the clinician **Research** tab.
 
 **Optional AI chat**
 
@@ -58,6 +48,16 @@ python3 server.py
 ```
 
 Without `.env`, support chat uses built-in fallback replies.
+
+More on features, exports, and troubleshooting: [patient-doctor-portal/README.md](patient-doctor-portal/README.md).
+
+### Files kept out of git
+
+| Path | When you need it |
+|------|------------------|
+| `patient-doctor-portal/data/` | Created automatically on first run (SQLite + CSV exports) |
+| `patient-doctor-portal/.env` | Optional — for OpenAI support chat (see above) |
+| `dataset/` | Only if you want to **re-run** analysis from raw files ([official download](https://entuedu-my.sharepoint.com/:f:/g/personal/bsclub-biohack_e_ntu_edu_sg/IgDu4xUT2v2MRIVfnFuXmmSwAf3BwLHa0QjqJ5TzpMMg2Vg?e=uogCWv)) |
 
 ## Re-run research pipelines (optional)
 
