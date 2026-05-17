@@ -8,7 +8,7 @@ SPA for PCOS / gynecologic **education**, **check-ins**, **support chat**, and *
 
 ## Run
 
-**Full clone → website flow** (what is gitignored, optional analysis, optional `.env`): [../README.md#complete-workflow-after-git-clone](../README.md#complete-workflow-after-git-clone).
+Setup, gitignored paths, and optional analysis: [../README.md](../README.md).
 
 ```bash
 cd patient-doctor-portal
