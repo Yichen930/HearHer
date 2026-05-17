@@ -37,6 +37,8 @@ python3 -m pip install -r requirements-api.txt
 python3 server.py
 ```
 
+Requires **Python 3.10+**. On macOS and Linux, use `python3` as above. On Windows, if `python3` is not found, try `python` or `py -3` instead (same commands). Check with `python3 --version` or `python --version`.
+
 Open **http://127.0.0.1:8000** and register as a patient and/or clinician. The same command serves the UI, accounts, check-ins (saved under `data/`), and the clinician **Research** tab.
 
 **Optional AI chat**
