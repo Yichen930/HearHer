@@ -1,9 +1,10 @@
 __pycache__/
 *.pyc
 *.pyo
+.DS_Store
 *.sqlite3
-*.tar
-*.tar.gz
-*.zip
-*.xlsx
+patient-doctor-portal/data/
+.env
+patient-doctor-portal/.env
+dataset/
 patient-doctor-portal-demo.zip

@@ -1,50 +1,77 @@
-# Patient + doctor demo portal
+# HearHer — Patient & Clinician Portal
 
-Static front end: **no build step**, **no npm**. You can run it in two ways:
+*BioHackzard*
+
+SPA for PCOS / gynecologic **education**, **check-ins**, **support chat**, and **clinician review**. Cohort numbers in the UI come from [`../backup/`](../backup/) (synced into `js/researchData.js`).
+
+**Routes & architecture:** [WEBSITE_LOGIC.md](WEBSITE_LOGIC.md)
+
+## Run
+
+**Full clone → website flow** (what is gitignored, optional analysis, optional `.env`): [../README.md#complete-workflow-after-git-clone](../README.md#complete-workflow-after-git-clone).
+
+```bash
+cd patient-doctor-portal
+python3 -m pip install -r requirements-api.txt
+python3 server.py
+```
+
+→ **http://127.0.0.1:8000**
+
+Cohort numbers and Research figures ship with the repo; re-run [`../backup/scripts/run_all_analyses.py`](../backup/scripts/run_all_analyses.py) only if you add files under [`../dataset/`](../dataset/) (not in git).
 
 | Mode | Command | Storage |
 |------|---------|---------|
-| **Offline** | `python -m http.server 5173` | Browser **localStorage** only |
-| **Server + SQLite** | `python server.py` | **`data/portal.sqlite3`** on disk + sessions |
+| **Server** (recommended) | `python3 server.py` | SQLite + `data/exports/*.csv` |
+| Static only | `python3 -m http.server 5173` | `localStorage` only |
 
-Neither mode is production-ready or HIPAA-compliant.
+Port busy: `kill $(lsof -t -i:8000) 2>/dev/null; python3 server.py`
 
-## Option A — Offline (localStorage)
+## Optional AI chat
 
-```powershell
-cd "C:\Users\uik07687\OneDrive - Aumovio SE\Desktop\hack\patient-doctor-portal"
-python -m http.server 5173
+```bash
+cp .env.example .env   # set OPENAI_API_KEY=sk-...
 ```
 
-Open `http://localhost:5173`. Log in **without** caring about password (any value). Data never leaves the browser.
+Restart server. `/api/health` shows `"ai_chat": true` when configured; otherwise built-in supportive replies.
 
-## Option B — SQLite database (recommended demo)
+## Features (short)
 
-Install API dependencies once:
+**Patient:** Home · Support chat · Check-in + history · Learn flashcards · Community · Privacy (chat consent)
 
-```powershell
-cd "C:\Users\uik07687\OneDrive - Aumovio SE\Desktop\hack\patient-doctor-portal"
-python -m pip install -r requirements-api.txt
-python server.py
+**Clinician:** Dashboard (pick active patient) · Link by email · Moderation · **Research** (cohort stats + figures) · CSV export
+
+Support = narrative / visit prep; Check-in = structured logs for clinicians.
+
+## CSV export (server mode)
+
+Writes under `data/exports/` on data changes (also **Refresh exports** on dashboard). Check-ins always visible to linked doctors; **support chat** only if patient consented. See `data/exports/README.txt`.
+
+## Reset demo
+
+```bash
+# Stop server first
+python3 scripts/reset_demo.py
 ```
 
-Open `http://127.0.0.1:8000`. The UI detects `/api/health` and switches to **server mode**:
+Clear browser site data for localhost, then `python3 server.py` and create fresh accounts.
 
-- Use **Create account** (or register via API) with password **≥ 4 characters**.
-- Accounts, sessions, doctor–patient links, and submissions are stored under `data/portal.sqlite3` (created automatically).
+## API sketch
 
-Stop the old `http.server` on port 5173 if it is still running to avoid confusion.
+`GET /api/health` · auth register/login · submissions · chat (+ optional `POST /api/chat/ai-reply`) · consent · clinical records · doctor exports manifest/sync/download · community posts
 
-## Try the two interfaces
+Full list in [WEBSITE_LOGIC.md](WEBSITE_LOGIC.md) or `server.py`.
 
-1. **Patient**: Register/log in as **Patient**, complete **New check-in**, read the **educational summary** (non-diagnostic).
-2. **Doctor**: Register/log in as **Doctor**, **Link patient** with the patient’s **registered email**, then **Doctor home** shows the **submission log** (JSON answers + patient-facing summary blocks).
-3. **Research notes**: Doctor menu → **Research notes** — placeholder for literature-level content (separate from triage).
+## Layout
 
-## About page
+```
+patient-doctor-portal/
+├── server.py, csv_export.py, requirements-api.txt
+├── index.html, css/, js/          # researchData.js = auto-generated
+├── research-figures/              # analysis plots + scrna/
+└── data/                          # sqlite + exports (gitignored)
+```
 
-`#/about` — English + 中文 compliance-oriented wording; storage bullet updates automatically in server vs offline mode.
+## Disclaimer
 
-## Production checklist (still not done)
-
-HTTPS, hardened auth, RBAC, audit logging, consent & retention, backups, encryption at rest, threat modeling, and regulatory path for any clinical decision support.
+Educational demo — not a medical device, diagnosis, or HIPAA-certified EHR.
