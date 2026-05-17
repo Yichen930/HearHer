@@ -1,4 +1,7 @@
-# HearHer
+<h1>
+  <img src="patient-doctor-portal/logo/HearHer-logo.png" alt="" width="56" style="vertical-align: middle; margin-right: 12px;" />
+  HearHer
+</h1>
 
 **HearHer** helps people living with PCOS or endometriosis track symptoms, prepare for visits, and learn from population-level research—while giving clinicians a structured view of the same journey. It runs as a local web app (patient portal + clinician workspace). Numbers in the UI come from published-style cohort analysis; the app is for **education and care coordination**, not diagnosis.
 
