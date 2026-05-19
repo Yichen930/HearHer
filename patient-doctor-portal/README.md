@@ -37,9 +37,15 @@ Restart server. `/api/health` shows `"ai_chat": true` when configured; otherwise
 
 ## Features (short)
 
-**Patient:** Home · Support chat · Check-in + history · Learn flashcards · Community · Privacy (chat consent)
+**Patient:** Home (pattern reflection for visit prep) · Support chat · Check-in + history · Learn flashcards · Community · Privacy (chat consent)
 
-**Clinician:** Dashboard (pick active patient) · Link by email · Moderation · **Research** (cohort stats + figures) · CSV export
+**Clinician:** Dashboard (pick active patient) · Link by email · Moderation · **Reference** · CSV export
+
+**Reference tab (innovation):** Multi-parameter cohort contextualization—not single-value lookup. After entering several measures, **Contextualize profile** shows:
+
+1. **Clinical phenotype framing** — reproductive / hyperandrogenic / metabolic balance (literature-aligned heterogeneity; not a diagnosis).
+2. **Statistical overlap** — browser-scored in-cohort logistic joint model (`research-figures/pcos_joint_model.json`); ordinal overlap labels; % and AUC under *Technical details*.
+3. **Raw cohort comparison** — axis-grouped bullets vs published PCOS table means (collapsed).
 
 Support = narrative / visit prep; Check-in = structured logs for clinicians.
 
@@ -47,14 +53,25 @@ Support = narrative / visit prep; Check-in = structured logs for clinicians.
 
 Writes under `data/exports/` on data changes (also **Refresh exports** on dashboard). Check-ins always visible to linked doctors; **support chat** only if patient consented. See `data/exports/README.txt`.
 
-## Reset demo
+## Demo accounts
 
 ```bash
-# Stop server first
+# Stop server first (Ctrl+C)
+python3 scripts/reset_demo.py
+python3 server.py
+```
+
+Register **patient@gmail.com** and **doctor@gmail.com** (password `2026`) in the UI, then link the patient from the clinician dashboard. Clear browser site data for `localhost` before logging in.
+
+See [../README.md](../README.md) for a fuller judge walkthrough (Reference contextualization, linked check-in).
+
+## Reset only (empty database)
+
+```bash
 python3 scripts/reset_demo.py
 ```
 
-Clear browser site data for localhost, then `python3 server.py` and create fresh accounts.
+Then register new accounts in the UI or sign in with existing demo credentials.
 
 ## API sketch
 

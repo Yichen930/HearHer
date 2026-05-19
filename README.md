@@ -11,6 +11,21 @@
 
 **HearHer** helps people living with PCOS or endometriosis track symptoms, prepare for visits, and learn from population-level research—while giving clinicians a structured view of the same journey. It runs as a local web app (patient portal + clinician workspace). Numbers in the UI come from published-style cohort analysis; the app is for **education and care coordination**, not diagnosis.
 
+## What makes HearHer different
+
+We designed around **clinical reasoning**, not “single-lab AI diagnosis”:
+
+| Innovation | What it does |
+|------------|----------------|
+| **Multi-parameter cohort contextualization** | Clinicians enter cycle pattern, androgen signs, labs, and imaging together—mirroring how PCOS is actually assessed (Rotterdam-style thinking), not one value at a time. |
+| **Three-layer Reference readout** | **(1) Clinical phenotype framing** — reproductive / hyperandrogenic / metabolic overlap with published PCOS heterogeneity literature. **(2) Statistical overlap** — in-cohort logistic fit over ~37 numeric fields (ordinal language, e.g. strong/moderate/mixed overlap—not a patient “99% PCOS” score). **(3) Raw cohort comparison** — per-axis bullets vs PCOS-labeled vs non–PCOS-labeled means, collapsed by default. |
+| **Exported joint cohort model** | Offline pipeline trains the same tabular logistic model as our analysis scripts and ships `pcos_joint_model.json` for browser-side scoring—measures are linked in one equation while the UI still says *not a diagnosis*. |
+| **Patient pattern reflection (no labs)** | Home check-in path uses qualitative prompts (cycles, skin/hair, energy, pain, fertility) for visit prep—warm, non-alarmist copy without turning symptoms into risk percentages. |
+| **Translational biology as background** | scRNA-seq inventory and selected UMAP deep dives are framed as *illustrative mechanistic context* for clinicians—not as if the app ran sequencing on the patient in front of you. |
+| **Shared patient–clinician story** | Linked accounts: patient check-in summary and clinician dashboard read the same narrative; optional chat privacy; CSV export for visit prep. |
+
+Classifier metrics (ROC-AUC, confusion matrix, coefficients) stay in collapsed **technical details** for researchers—not the primary clinician surface.
+
 ## What it offers
 
 **For patients**
@@ -24,7 +39,7 @@
 **For clinicians**
 
 - **Dashboard** — link patients by email, review check-ins and summaries, export CSV.
-- **Research** — cohort statistics, PCOS vs endometriosis comparison, lab lookup, and single-cell figures synced from offline analysis.
+- **Reference** — multi-parameter cohort contextualization (phenotype + joint statistical overlap), PCOS vs endometriosis population context, per-measure lookup, and illustrative single-cell background synced from offline analysis.
 
 Everything runs on your machine (SQLite). No cloud EHR or HIPAA certification is implied.
 
@@ -48,25 +63,26 @@ python3 server.py
 
 Requires **Python 3.10+**. On macOS and Linux, use `python3` as above. On Windows, if `python3` is not found, try `python` or `py -3` instead (same commands). Check with `python3 --version` or `python --version`.
 
-Open **http://127.0.0.1:8000**. The same command serves the UI, accounts, check-ins (saved under `data/`), and the clinician **Research** tab.
+Open **http://127.0.0.1:8000**. The same command serves the UI, accounts, check-ins (saved under `data/`), and the clinician **Reference** tab.
 
 ### Demo accounts (judges / presentation)
 
+Stop the server first (Ctrl+C), then:
+
 ```bash
 cd patient-doctor-portal
-python3 scripts/reset_demo.py    # stop server first
-python3 scripts/seed_demo.py
+python3 scripts/reset_demo.py
 python3 server.py
 ```
 
-Clear browser storage for `localhost`, then sign in:
+Clear browser storage for `localhost`, register both accounts below (or sign in if you already seeded locally), and link patient from the clinician dashboard:
 
 | Role | Email | Password |
 |------|--------|----------|
 | Patient | `patient@gmail.com` | `2026` |
 | Clinician | `doctor@gmail.com` | `2026` |
 
-Includes a linked pair, one sample check-in, and chat sharing enabled. **4-minute walkthrough:** [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
+In **Reference**, try **Contextualize profile** with several fields (cycle + androgen signs + AMH or BMI) to see the three-layer readout.
 
 **Optional AI chat**
 
@@ -99,7 +115,7 @@ python3 -m pip install -r backup/requirements-scrna.txt
 python3 backup/scripts/run_all_analyses.py
 ```
 
-That runs tabular PCOS analysis, PCOS vs endometriosis comparison, scRNA inventory, selected Scanpy deep dives, then **syncs and verifies** the portal. Hard-refresh the browser after it finishes.
+That runs tabular PCOS analysis, PCOS vs endometriosis comparison, scRNA inventory, selected Scanpy deep dives, then **syncs and verifies** the portal (including `research-figures/pcos_joint_model.json` for the Reference **joint cohort model** when `dataset/` is present). Hard-refresh the browser after it finishes.
 
 | Pipeline | Headline result |
 |----------|-----------------|
@@ -114,7 +130,7 @@ Full pipeline docs: [backup/README.md](backup/README.md)
 
 - App features & CSV export: [patient-doctor-portal/README.md](patient-doctor-portal/README.md)
 - Routes and modules: [patient-doctor-portal/WEBSITE_LOGIC.md](patient-doctor-portal/WEBSITE_LOGIC.md)
-- Demo script (~4 min): [DEMO_SCRIPT.md](DEMO_SCRIPT.md)
+- Offline analysis & sync: [backup/README.md](backup/README.md)
 
 ## Disclaimer
 
