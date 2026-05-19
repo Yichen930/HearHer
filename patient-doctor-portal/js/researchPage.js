@@ -12,8 +12,9 @@ import {
   RESEARCH_DATA_SOURCES,
   CONDITION_EDUCATION,
   SYMPTOM_DIFFERENTIATION,
+  LAB_COHORT_REFERENCE,
 } from "./researchData.js";
-import { renderLabLookupSection, initLabLookup } from "./researchLabLookup.js";
+import { renderPhenotypeContextSection } from "./researchPhenotypeContext.js";
 
 function escapeHtml(s) {
   return String(s)
@@ -30,23 +31,52 @@ function formatPValue(p) {
 }
 
 function renderResearchToc() {
-  const links = [
-    ["research-scope", "Scope"],
-    ["research-sources", "Data sources"],
-    ["research-cohort", "PCOS cohort"],
-    ["research-compare", "PCOS vs endo"],
-    ["research-lab", "Lab lookup"],
-    ["research-scrna", "Single-cell"],
-    ["research-education", "Education"],
+  const groups = [
+    {
+      label: "Patient vs cohort",
+      links: [["research-lab", "Multi-parameter profile"]],
+      primary: true,
+    },
+    {
+      label: "Population patterns",
+      links: [
+        ["research-cohort", "PCOS cohort patterns"],
+        ["research-compare", "PCOS vs endometriosis"],
+      ],
+    },
+    {
+      label: "Translational biology (optional)",
+      links: [
+        ["research-scrna", "Tissue insights"],
+        ["research-scrna-deep", "Supporting figures"],
+      ],
+    },
+    {
+      label: "Reference",
+      links: [
+        ["research-scope", "Data scope"],
+        ["research-sources", "Provenance"],
+        ["research-education", "Education"],
+      ],
+    },
   ];
-  return `<nav class="research-toc" aria-label="Research sections">
-    ${links
+  return `<nav class="research-toc" aria-label="Reference sections">
+    ${groups
       .map(
-        ([id, label]) =>
-          `<button type="button" class="research-toc-link" data-research-jump="${escapeHtml(id)}">${escapeHtml(label)}</button>`
+        (g) => `<div class="research-toc-group${g.primary ? " research-toc-group--primary" : ""}">
+      <p class="research-toc-group-label">${escapeHtml(g.label)}</p>
+      <div class="research-toc-group-links">
+        ${g.links
+          .map(
+            ([id, label]) =>
+              `<button type="button" class="research-toc-link${g.primary ? " research-toc-link--primary" : ""}" data-research-jump="${escapeHtml(id)}">${escapeHtml(label)}</button>`
+          )
+          .join("")}
+      </div>
+    </div>`
       )
       .join("")}
-  </nav>`;
+  </nav>`.replace(/<motion-placeholder><\/motion-placeholder>/g, "");
 }
 
 const RESEARCH_TOP_ID = "research-top";
@@ -62,7 +92,7 @@ export function scrollToResearchSection(sectionId) {
 
 /** In-page jumps only — hash links break the #/doctor/research SPA route. */
 export function initResearchToc() {
-  document.querySelectorAll(".research-toc [data-research-jump]").forEach((btn) => {
+  document.querySelectorAll("[data-research-jump]").forEach((btn) => {
     btn.addEventListener("click", () => {
       scrollToResearchSection(btn.getAttribute("data-research-jump"));
     });
@@ -90,6 +120,41 @@ function renderResearchZone(id, title, tone, bodyHtml, subtitle = "") {
   </section>`;
 }
 
+function renderResearchPart(eyebrow, subtitle, zonesHtml, partClass = "") {
+  return `<div class="research-part${partClass ? ` ${escapeHtml(partClass)}` : ""}">
+    <header class="research-part-head">
+      <h2 class="research-part-title">${escapeHtml(eyebrow)}</h2>
+      ${subtitle ? `<p class="research-part-sub muted">${escapeHtml(subtitle)}</p>` : ""}
+    </header>
+    <div class="research-part-zones">${zonesHtml}</div>
+  </div>`;
+}
+
+function renderResearchScopeCompact() {
+  return `<div class="research-quick-scope card" role="note">
+    <p><strong>Population reference only.</strong> Numbers come from published supplementary cohorts — not from labs or cells of patients linked in this portal.</p>
+    <button type="button" class="btn btn-ghost btn-sm research-quick-scope-jump" data-research-jump="research-scope">Read full data scope</button>
+  </div>`;
+}
+
+function renderFeaturedLabZone() {
+  const n = PCOS_COHORT.n;
+  const labCount = LAB_COHORT_REFERENCE.length;
+  return `<section id="research-lab" class="research-zone research-zone--lab-lookup research-zone--featured">
+    <header class="research-zone-head">
+      <span class="research-zone-eyebrow">Clinical workflow</span>
+      <h2>Multi-parameter cohort contextualization</h2>
+      <p class="research-zone-sub">PCOS is heterogeneous — enter cycle pattern, androgen signs, and labs <strong>together</strong> (n=${n} published cohort). Phenotype-style readout — <strong>not</strong> a diagnosis from a single AMH or BMI.</p>
+      <ul class="research-workflow-prompts">
+        <li><strong>Cross-check together</strong> — symptoms, cycles, androgen signs, ultrasound, hormone panel, metabolic markers.</li>
+        <li><strong>Phenotype readout</strong> — which cohort pattern your combination resembles (or mixed / insufficient).</li>
+        <li><strong>Single measure</strong> — optional advanced lookup (${labCount} mapped fields).</li>
+      </ul>
+    </header>
+    <div class="research-zone-body">${renderPhenotypeContextSection()}${renderBackToTop()}</div>
+  </section>`;
+}
+
 function renderMetricTable(rows) {
   return `<div class="research-table-wrap"><table class="research-table research-table--compact">
     <thead><tr><th>Metric</th><th>Value</th></tr></thead>
@@ -104,7 +169,7 @@ function renderMetricTable(rows) {
 
 function renderFigure(fig, caption) {
   return `<figure class="research-figure">
-    <img src="${escapeHtml(fig.src)}" alt="${escapeHtml(fig.alt)}" loading="lazy" width="640" />
+    <img src="${escapeHtml(fig.src)}" alt="${escapeHtml(fig.alt)}" loading="lazy" />
     <figcaption>${escapeHtml(caption)}</figcaption>
   </figure>`;
 }
@@ -142,14 +207,24 @@ function renderDataSources() {
     </table></div>`;
 }
 
+function clinicalCorrelationLine(r) {
+  const dir = r.corr >= 0 ? "higher" : "lower";
+  return `${r.feature} tends to be ${dir} with a PCOS label in this cohort (r=${r.corr >= 0 ? "+" : ""}${r.corr.toFixed(2)}).`;
+}
+
 function renderTabularCohortSection() {
   const c = PCOS_COHORT;
+  const clinicalLead = `
+    <p class="research-clinical-lead">Published tabular PCOS cohort (n=${c.n}): which symptoms and measures <strong>travel with</strong> a PCOS label here. Use <strong>Multi-parameter profile</strong> above for combined contextualization — this section is population context only.</p>
+    <h3 class="research-mini-label">Patterns clinicians recognize in this dataset</h3>
+    <ul class="research-clinical-bullets">${PCOS_TOP_CORRELATIONS.slice(0, 6)
+      .map((r) => `<li>${escapeHtml(clinicalCorrelationLine(r))}</li>`)
+      .join("")}</ul>`;
   const stats = `
-    <div class="research-stat-grid research-stat-grid--4">
-      <div class="research-stat"><span class="research-stat-value">${c.n}</span><span class="research-stat-label">Rows</span></div>
+    <div class="research-stat-grid research-stat-grid--3">
+      <div class="research-stat"><span class="research-stat-value">${c.n}</span><span class="research-stat-label">Participants</span></div>
       <div class="research-stat"><span class="research-stat-value">${c.pcosLabeledCount}</span><span class="research-stat-label">PCOS-labeled</span></div>
-      <div class="research-stat"><span class="research-stat-value">${Math.round(c.cvRocAuc * 100)}%</span><span class="research-stat-label">CV ROC-AUC</span></div>
-      <div class="research-stat"><span class="research-stat-value">${Math.round(c.cvF1 * 100)}%</span><span class="research-stat-label">CV F1</span></div>
+      <div class="research-stat"><span class="research-stat-value">${c.n - c.pcosLabeledCount}</span><span class="research-stat-label">Not PCOS-labeled</span></div>
     </div>`;
 
   const cvMetrics = renderMetricTable([
@@ -202,19 +277,25 @@ function renderTabularCohortSection() {
     },
   ]);
 
-  const caveat = `<p class="muted research-cohort-caveat">CV metrics are in-cohort only (not external validation) and must not be used to score individual patients in this app.</p>`;
+  const caveat = `<p class="muted research-cohort-caveat">Model metrics are in-cohort research reference only — not external validation and not for scoring individual patients.</p>`;
 
-  return stats + caveat + cvMetrics + confusion + correlations + coefficients + figures;
+  const mlBlock = `${caveat}${cvMetrics}${confusion}${correlations}${coefficients}${figures}`;
+
+  return `${clinicalLead}${stats}
+    <details class="research-details research-details--ml">
+      <summary>Technical details — classifier metrics &amp; coefficients (in-cohort only)</summary>
+      <div class="research-details-body">${mlBlock}</div>
+    </details>`;
 }
 
 function renderCompareSection() {
   const v = PCOS_VS_ENDO;
+  const clinicalLead = `<p class="research-clinical-lead">When PCOS and endometriosis are both in the differential, compare <strong>harmonized fields</strong> between confirmed cases — use symptoms and examination first; these tables are secondary context.</p>`;
   const stats = `
-    <div class="research-stat-grid research-stat-grid--4">
+    <div class="research-stat-grid research-stat-grid--3">
       <div class="research-stat"><span class="research-stat-value">${v.pcosN}</span><span class="research-stat-label">PCOS confirmed</span></div>
       <div class="research-stat"><span class="research-stat-value">${v.endoN.toLocaleString()}</span><span class="research-stat-label">Endo confirmed</span></div>
-      <div class="research-stat"><span class="research-stat-value">${Math.round(v.differentiationAuc * 100)}%</span><span class="research-stat-label">Differentiation AUC</span></div>
-      <div class="research-stat"><span class="research-stat-value">${Math.round(v.differentiationAccuracy * 100)}%</span><span class="research-stat-label">Accuracy</span></div>
+      <div class="research-stat"><span class="research-stat-value">${PCOS_VS_ENDO_DIFF_TESTS.length}</span><span class="research-stat-label">Fields compared</span></div>
     </div>`;
 
   const diffRows = PCOS_VS_ENDO_DIFF_TESTS.map(
@@ -248,40 +329,65 @@ function renderCompareSection() {
     },
   ]);
 
-  return stats + diffTable + rules + figures;
+  const mlStats = renderMetricTable([
+    ["Differentiation AUC (in-cohort)", `${Math.round(v.differentiationAuc * 100)}%`],
+    ["Accuracy", `${Math.round(v.differentiationAccuracy * 100)}%`],
+  ]);
+
+  return `${clinicalLead}${stats}${diffTable}${rules}
+    <details class="research-details research-details--ml">
+      <summary>Classifier figures &amp; metrics (research reference)</summary>
+      <div class="research-details-body">${mlStats}${figures}</div>
+    </details>`;
 }
 
-function renderScRnaDeepScopeNote() {
+function inventoryRowFilterKey(row) {
+  if (row.deepOnPortal) return "deep";
+  if (/endometri/i.test(row.dataset || "")) return "endo";
+  if (/pcos/i.test(row.dataset || "")) return "pcos";
+  return "inventory";
+}
+
+function renderScRnaNarrativeBlock() {
   const scope = SCRNA_DEEP_SCOPE || {};
-  const runs = (scope.deepRunLabels || [])
-    .map((label) => `<li>${escapeHtml(label)}</li>`)
-    .join("");
   const invN =
     scope.inventoryLibraries ??
     SCRNA_INVENTORY.endometriumLibraries + SCRNA_INVENTORY.pcosLibraries;
-  const deepN = scope.deepRunsOnPortal ?? 2;
-  const summary =
-    scope.summary ||
-    "All published libraries are inventoried below. UMAP and clustering on this page cover endometrium and the Mc26 control/forskolin pair.";
-  return `<div class="scrna-deep-scope callout">
-    <p><strong>${deepN} deep analyses on this page</strong> · ${invN} libraries inventoried below</p>
-    <p>${escapeHtml(summary)}</p>
-    ${runs ? `<p class="research-mini-label">UMAP / clustering shown here</p><ul class="research-list">${runs}</ul>` : ""}
-    <p class="muted"><a href="/research-figures/scrna/inventory_report.html" target="_blank" rel="noopener">Open full inventory report</a> (all libraries). More Scanpy runs: <code>backup/scripts/scrna_deep_analysis.py</code>.</p>
+  return `<div class="scrna-narrative-block">
+    <p class="research-clinical-lead">Published supplementary tissue — <strong>not</strong> cells from patients linked in this portal. Read as translational background; figures support the narratives below.</p>
+    <div class="scrna-narrative-grid">
+      <article class="scrna-narrative-card scrna-narrative-card--primary">
+        <h3>Androgen biosynthesis activity increases under stimulation</h3>
+        <p>One PCOS ovarian donor (Mc26): forskolin (cAMP) vs control shifts clustering and androgen-pathway-related expression in vitro — illustrative of ovarian tissue response to signaling, not a point-of-care test.</p>
+        <button type="button" class="btn btn-primary btn-sm scrna-jump-figures">See supporting figures</button>
+      </article>
+      <article class="scrna-narrative-card">
+        <h3>Representative stromal–epithelial pattern in eutopic endometrium</h3>
+        <p>Clusters reflect mixed stromal, epithelial, immune, and cycle-phase programs — useful endometrial biology context, not a patient-specific assay.</p>
+      </article>
+      <article class="scrna-narrative-card">
+        <h3>Inflammatory and remodeling signatures</h3>
+        <p>Immune and stromal states appear alongside epithelial clusters — relevant to translational discussions, not individual diagnosis.</p>
+      </article>
+    </div>
+    <p class="muted scrna-narrative-foot">${invN} published libraries inventoried; ${scope.deepRunsOnPortal ?? 2} have illustrative figures on this page.</p>
   </div>`;
 }
 
 function renderScRnaInventoryTable() {
   const inventory = SCRNA_LIBRARY_INVENTORY || [];
+  const deepCount = inventory.filter((r) => r.deepOnPortal).length;
   const rows = inventory
     .map((r) => {
+      const filterKey = inventoryRowFilterKey(r);
       const badge = r.deepOnPortal
-        ? `<span class="scrna-badge scrna-badge--deep">Deep dive</span>`
-        : `<span class="scrna-badge scrna-badge--inventory">Inventory</span>`;
+        ? `<span class="scrna-badge scrna-badge--deep">Figures on this page</span>`
+        : `<span class="scrna-badge scrna-badge--inventory">Listed only</span>`;
       const arm = r.arm ? escapeHtml(r.arm) : "—";
-      return `<tr>
+      const rowClass = r.deepOnPortal ? " scrna-inventory-row--deep" : "";
+      return `<tr class="scrna-inventory-row${rowClass}" data-inventory-row="${escapeHtml(filterKey)}" data-deep="${r.deepOnPortal ? "1" : "0"}">
       <td>${escapeHtml(r.dataset)}</td>
-      <td>${escapeHtml(r.library)}</td>
+      <td><code class="scrna-lib-code">${escapeHtml(r.library)}</code></td>
       <td>${arm}</td>
       <td>${r.cells.toLocaleString()}</td>
       <td>${r.nnzPerCell.toLocaleString()}</td>
@@ -289,54 +395,133 @@ function renderScRnaInventoryTable() {
     </tr>`;
     })
     .join("");
-  return `<p class="research-mini-label">All supplementary 10x libraries (published cohorts)</p>
-    <div class="research-table-wrap research-table-wrap--scroll"><table class="research-table research-table--compact scrna-inventory-table">
-      <thead><tr><th>Dataset</th><th>Library</th><th>Arm</th><th>Cells</th><th>Mean UMIs/cell</th><th>On this page</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>`;
+
+  return `<div id="scrna-inventory-root" class="scrna-inventory-block">
+    <div class="scrna-inventory-head">
+      <div>
+        <h3 class="research-scrna-section-title">Library inventory</h3>
+        <p class="muted">Filter ${inventory.length} supplementary libraries. <span id="scrna-inventory-count">Showing ${inventory.length} libraries</span> · ${deepCount} with UMAP figures below.</p>
+      </div>
+      <div class="scrna-inventory-filters" role="group" aria-label="Filter libraries">
+        <button type="button" class="scrna-filter-btn is-active" data-inventory-filter="all">All</button>
+        <button type="button" class="scrna-filter-btn" data-inventory-filter="deep">On this page (${deepCount})</button>
+        <button type="button" class="scrna-filter-btn" data-inventory-filter="endo">Endometrium</button>
+        <button type="button" class="scrna-filter-btn" data-inventory-filter="pcos">PCOS ovarian</button>
+      </div>
+    </div>
+    <div class="research-table-wrap research-table-wrap--scroll">
+      <table class="research-table research-table--compact scrna-inventory-table">
+        <thead><tr><th>Dataset</th><th>Library ID</th><th>Study arm</th><th>Cells</th><th>Mean UMIs/cell</th><th>Figures</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p class="scrna-inventory-foot muted">
+      <a href="/research-figures/scrna/inventory_report.html?v=4">Open full inventory report</a> (summary cards + filterable table; use browser Back or the report link to return).
+    </p>
+  </div>`;
+}
+
+export function initScRnaInventoryFilters() {
+  const root = document.getElementById("scrna-inventory-root");
+  if (!root) return;
+  const rows = root.querySelectorAll("tbody tr[data-inventory-row]");
+  const countEl = root.querySelector("#scrna-inventory-count");
+  const buttons = root.querySelectorAll("[data-inventory-filter]");
+
+  const applyFilter = (filter) => {
+    let visible = 0;
+    rows.forEach((row) => {
+      const key = row.getAttribute("data-inventory-row") || "";
+      const show =
+        filter === "all" ||
+        key === filter ||
+        (filter === "deep" && row.getAttribute("data-deep") === "1");
+      row.hidden = !show;
+      if (show) visible += 1;
+    });
+    if (countEl) {
+      countEl.textContent = `Showing ${visible} of ${rows.length} libraries`;
+    }
+    buttons.forEach((btn) => {
+      btn.classList.toggle("is-active", btn.getAttribute("data-inventory-filter") === filter);
+    });
+  };
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      applyFilter(btn.getAttribute("data-inventory-filter") || "all");
+    });
+  });
+
+  document.querySelector(".scrna-jump-figures")?.addEventListener("click", () => {
+    scrollToResearchSection("research-scrna-deep");
+  });
+}
+
+function friendlyDeepRunMeta(run) {
+  if (run.dataset === "endometrium") {
+    return {
+      title: "Endometrium (eutopic tissue)",
+      narrativeTitle: "Inflammatory and stromal–epithelial programs in eutopic endometrium",
+      insight:
+        "Clusters mix cycle-phase, stromal, epithelial, and immune states — translational background for endometrial biology, not a patient-specific assay.",
+      subtitle: "2 supplementary libraries · ~8,000 cells after QC",
+      blurb: "",
+    };
+  }
+  if (run.pair_prefix === "Mc26" || /Mc26/i.test(run.label || "")) {
+    return {
+      title: "PCOS ovarian — donor Mc26",
+      narrativeTitle: "Androgen biosynthesis activity increases under stimulation",
+      insight:
+        "Same-donor control vs forskolin (cAMP) illustrates how ovarian tissue clustering and androgen-pathway expression can shift in vitro — research context, not clinical validation.",
+      subtitle: "Control vs forskolin, same donor",
+      blurb: "",
+    };
+  }
+  return {
+    title: run.label || "Single-cell run",
+    narrativeTitle: run.label || "Single-cell run",
+    insight: "",
+    subtitle: "",
+    blurb: "",
+  };
 }
 
 function renderScRnaSection() {
-  const s = SCRNA_INVENTORY;
-  const stats = `
-    <div class="research-stat-grid research-stat-grid--4">
-      <div class="research-stat"><span class="research-stat-value">${s.endometriumLibraries}</span><span class="research-stat-label">Endo libraries</span></div>
-      <div class="research-stat"><span class="research-stat-value">${s.pcosLibraries}</span><span class="research-stat-label">PCOS libraries</span></div>
-      <div class="research-stat"><span class="research-stat-value">${(s.endometriumCells + s.pcosCells).toLocaleString()}</span><span class="research-stat-label">Total cells</span></div>
-      <div class="research-stat"><span class="research-stat-value">${s.genesPerMatrix.toLocaleString()}</span><span class="research-stat-label">Genes / matrix</span></div>
-    </div>
-    <ul class="research-list">
-      <li><strong>Endometrium</strong> (eutopic): ${s.endometriumCells.toLocaleString()} cells across ${s.endometriumLibraries} libraries.</li>
-      <li><strong>PCOS ovarian</strong>: ${s.pcosCells.toLocaleString()} cells across ${s.pcosLibraries} libraries (10 donors × control / forskolin arms).</li>
-      <li>Mean detected UMIs per cell ~${Math.round(s.meanNnzPerCellEndo)} (endo) / ~${Math.round(s.meanNnzPerCellPcos)} (PCOS).</li>
-    </ul>`;
+  const inventory = SCRNA_LIBRARY_INVENTORY || [];
 
-  const deepSlot = `<div id="scrna-deep-slot" class="scrna-deep-loading muted">Loading UMAP and clustering figures…</div>`;
+  const deepSlot = `
+    <section id="research-scrna-deep" class="scrna-deep-section" tabindex="-1">
+      <header class="scrna-deep-section-head">
+        <h3 class="research-scrna-section-title">Supporting figures</h3>
+        <p class="muted">Illustrations for the narratives above — technical QC and cluster tables are inside each card.</p>
+      </header>
+      <div id="scrna-deep-slot" class="scrna-deep-loading muted">Loading figures…</div>
+    </section>`;
 
-  const workflows = `<details class="research-details">
-    <summary>Literature-aligned analysis workflows (reference)</summary>
-    <h4 class="research-mini-label">Endometrium</h4>
-    <ol class="research-steps">
-      <li>Cell types — stromal, epithelial, immune, endothelial marker sets.</li>
-      <li>Cycle phase — proliferative vs secretory programs.</li>
-      <li>Endometriosis-associated inflammation and progesterone-resistance signatures (study context).</li>
-    </ol>
-    <h4 class="research-mini-label">PCOS ovarian</h4>
-    <ol class="research-steps">
-      <li>Integrate donors; annotate granulosa, theca, immune, stromal.</li>
-      <li>Compare control vs forskolin (cAMP) arms; PCOS vs control where labeled in source study.</li>
-      <li>Pseudo-bulk DE per donor per cell type; pathway and cell–cell communication follow-up.</li>
-    </ol>
+  const inventoryBlock = `<details class="research-details research-details--scrna-inventory">
+    <summary>Full library inventory (${inventory.length} supplementary libraries)</summary>
+    <div class="research-details-body">${renderScRnaInventoryTable()}</div>
   </details>`;
 
-  return (
-    renderScRnaDeepScopeNote() +
-    stats +
-    renderScRnaInventoryTable() +
-    `<h3 class="research-scrna-deep-title">Deep dives (UMAP, clusters, marker heatmaps)</h3>` +
-    deepSlot +
-    workflows
-  );
+  const workflows = `<details class="research-details">
+    <summary>Computational methods (offline pipeline)</summary>
+    <p class="muted">For re-running analysis from raw ZIPs — not required to use the app.</p>
+    <h4 class="research-mini-label">Endometrium workflow</h4>
+    <ol class="research-steps">
+      <li>Annotate stromal, epithelial, immune, and endothelial marker sets.</li>
+      <li>Compare proliferative vs secretory programs.</li>
+    </ol>
+    <h4 class="research-mini-label">PCOS ovarian workflow</h4>
+    <ol class="research-steps">
+      <li>Integrate donors; compare control (C) vs forskolin (F) within donor.</li>
+      <li>Mc26 on this page is one representative donor pair.</li>
+    </ol>
+    <p class="muted scrna-dev-note">Regenerate figures: <code>python3 backup/scripts/scrna_deep_analysis.py</code></p>
+  </details>`;
+
+  return renderScRnaNarrativeBlock() + deepSlot + inventoryBlock + workflows;
 }
 
 function renderEducationSection() {
@@ -372,19 +557,23 @@ function renderSymptomTable() {
 }
 
 export function renderResearchPageHead() {
-  const s = SCRNA_INVENTORY;
+  const labCount = LAB_COHORT_REFERENCE.length;
   return `<header id="${RESEARCH_TOP_ID}" class="card research-page-head" tabindex="-1">
     <div class="research-page-head-top">
       <div class="research-page-head-brand">
-        <span class="badge badge-doctor">Research library</span>
-        <h1>Clinician research &amp; analysis library</h1>
-        <p class="muted">Published supplementary cohort statistics, models, full single-cell inventory, and UMAP deep dives — separate from linked patients on the dashboard.</p>
+        <span class="badge badge-doctor">Reference library</span>
+        <h1>Context for clinical decisions</h1>
+        <p class="research-page-tagline muted">Cohort &amp; population reference</p>
+        <p class="muted">Help clinicians <strong>contextualize symptoms and labs</strong> against published PCOS cohorts — not to replace examination, imaging, or local guidelines. Linked patients stay on the dashboard; this page is population reference only.</p>
+        <p class="research-page-head-cta">
+          <button type="button" class="btn btn-primary" data-research-jump="research-lab">Contextualize patient profile</button>
+        </p>
       </div>
     </div>
     <div class="research-page-head-stats" aria-label="Dataset scale">
-      <div class="research-head-stat"><span class="research-head-stat-value">${PCOS_COHORT.n}</span><span class="research-head-stat-label">PCOS tabular rows</span></div>
-      <div class="research-head-stat"><span class="research-head-stat-value">${(s.endometriumCells + s.pcosCells).toLocaleString()}</span><span class="research-head-stat-label">scRNA cells inventoried</span></div>
-      <div class="research-head-stat"><span class="research-head-stat-value">2</span><span class="research-head-stat-label">UMAP deep dives on this page</span></div>
+      <div class="research-head-stat research-head-stat--primary"><span class="research-head-stat-value">${labCount}</span><span class="research-head-stat-label">Measures in lab lookup</span></div>
+      <div class="research-head-stat"><span class="research-head-stat-value">${PCOS_COHORT.n}</span><span class="research-head-stat-label">PCOS cohort participants</span></div>
+      <div class="research-head-stat"><span class="research-head-stat-value">${PCOS_VS_ENDO_DIFF_TESTS.length}</span><span class="research-head-stat-label">PCOS vs endo fields</span></div>
     </div>
   </header>`;
 }
@@ -392,60 +581,73 @@ export function renderResearchPageHead() {
 export function renderDoctorResearchBody() {
   return [
     renderResearchToc(),
-    renderResearchZone(
-      "research-scope",
-      "Data scope",
-      "scope",
-      renderScopeBanner(),
-      "Supplementary cohorts ≠ patients in this portal"
+    renderResearchScopeCompact(),
+    renderFeaturedLabZone(),
+    renderResearchPart(
+      "Population patterns",
+      "What tends to associate with a PCOS label in the published tabular cohort — use lab lookup for an individual value.",
+      [
+        renderResearchZone(
+          "research-cohort",
+          "PCOS cohort — clinical patterns",
+          "cohort",
+          renderTabularCohortSection(),
+          `n=${PCOS_COHORT.n} · population context`
+        ),
+        renderResearchZone(
+          "research-compare",
+          "PCOS vs endometriosis",
+          "compare",
+          renderCompareSection(),
+          "Harmonized fields — confirmed cases only"
+        ),
+      ].join("")
     ),
-    renderResearchZone(
-      "research-sources",
-      "Analysis provenance",
-      "sources",
-      renderDataSources(),
-      "Published supplementary datasets"
+    renderResearchPart(
+      "Translational biology (optional)",
+      "Narrative insights from published single-cell supplementary data — not patient assays.",
+      renderResearchZone(
+        "research-scrna",
+        "Tissue-level insights",
+        "scrna",
+        renderScRnaSection(),
+        "Illustrative figures · full inventory collapsible"
+      ),
+      "research-part--secondary"
     ),
-    renderResearchZone(
-      "research-cohort",
-      "Tabular PCOS cohort",
-      "cohort",
-      renderTabularCohortSection(),
-      "Population benchmarks — logistic model & correlations"
+    renderResearchPart(
+      "Background & education",
+      "Data scope, provenance, and condition reference material.",
+      [
+        renderResearchZone(
+          "research-scope",
+          "Data scope",
+          "scope",
+          renderScopeBanner(),
+          "Supplementary cohorts ≠ patients in this portal"
+        ),
+        renderResearchZone(
+          "research-sources",
+          "Analysis provenance",
+          "sources",
+          renderDataSources(),
+          "Published supplementary datasets"
+        ),
+        renderResearchZone(
+          "research-education",
+          "Clinical education",
+          "education",
+          renderEducationSection(),
+          "Mechanisms, referral cues, symptom patterns"
+        ),
+      ].join("")
     ),
-    renderResearchZone(
-      "research-compare",
-      "PCOS vs endometriosis",
-      "compare",
-      renderCompareSection(),
-      "Harmonized overlapping fields — confirmed cases"
-    ),
-    renderResearchZone(
-      "research-lab",
-      "Lab & measure lookup",
-      "lab-lookup",
-      renderLabLookupSection(),
-      "Match a result to PCOS cohort reference means"
-    ),
-    renderResearchZone(
-      "research-scrna",
-      "Single-cell analysis",
-      "scrna",
-      renderScRnaSection(),
-      "Full library inventory + representative UMAP / clustering"
-    ),
-    renderResearchZone(
-      "research-education",
-      "Clinical education",
-      "education",
-      renderEducationSection(),
-      "Mechanisms, referral cues, and symptom patterns"
-    ),
-    `<div class="callout danger research-disclaimer">Do not present scRNA pathway plots or cohort model metrics as results for a linked patient. Eutopic endometrium ≠ endometriosis lesion biology without study context.</div>`,
-  ].join("");
+    `<div class="callout danger research-disclaimer">Educational reference only — not a diagnosis for a linked patient. Do not present cohort or scRNA plots as individual lab results.</div>`,
+  ].join("").replace(/<motion-placeholder><\/motion-placeholder>/, "");
 }
 
 function renderOneScRnaDeepRun(run) {
+  const meta = friendlyDeepRunMeta(run);
   const clusters = (run.clusters || [])
     .map(
       (c) =>
@@ -460,41 +662,55 @@ function renderOneScRnaDeepRun(run) {
   if (run.portal_umap) {
     figs.push({
       src: run.portal_umap,
-      alt: `UMAP ${run.label}`,
-      caption: `${run.label} — Leiden clusters and dominant marker-set label (UMAP).`,
+      alt: `UMAP ${meta.title}`,
+      caption: `${meta.title} — Leiden clusters (UMAP).`,
     });
   }
   if (run.portal_heatmap) {
     figs.push({
       src: run.portal_heatmap,
-      alt: `Marker heatmap ${run.label}`,
-      caption: `${run.label} — mean marker-set scores by cluster.`,
+      alt: `Marker heatmap ${meta.title}`,
+      caption: `${meta.title} — mean marker-set scores by cluster.`,
     });
   }
   const cf = run.forskolin_comparison
-    ? `<p class="research-mini-label">Forskolin vs control (same donor subset)</p>
-       <ul class="research-list">
-         <li>Donor ${escapeHtml(run.forskolin_comparison.donor)}: ${run.forskolin_comparison.cells_control} control cells, ${run.forskolin_comparison.cells_forskolin} forskolin cells.</li>
-         <li>Mean log expression (androgen biosynthesis genes): control ${run.forskolin_comparison.mean_log_expr_androgen_biosynthesis_genes.control.toFixed(3)}, forskolin ${run.forskolin_comparison.mean_log_expr_androgen_biosynthesis_genes.forskolin.toFixed(3)}.</li>
-         <li class="muted">${escapeHtml(run.forskolin_comparison.interpretation)}</li>
-       </ul>`
+    ? `<div class="scrna-androgen-callout">
+         <p>Under forskolin, mean androgen-biosynthesis gene expression rises (control <strong>${run.forskolin_comparison.mean_log_expr_androgen_biosynthesis_genes.control.toFixed(2)}</strong> → forskolin <strong>${run.forskolin_comparison.mean_log_expr_androgen_biosynthesis_genes.forskolin.toFixed(2)}</strong>, donor ${escapeHtml(run.forskolin_comparison.donor)}).</p>
+         <p class="muted">${escapeHtml(run.forskolin_comparison.interpretation)}</p>
+       </div>`
     : "";
 
-  return `<article class="scrna-deep-run">
-    <h3>${escapeHtml(run.label)}</h3>
-    <p class="muted">${Number(run.cells_after_qc).toLocaleString()} cells after QC · ${run.n_clusters} Leiden clusters · ${run.genes_after_hvg} highly variable genes</p>
-    ${scores ? `<p class="research-mini-label">Mean marker-set scores (cohort)</p><ul class="research-list">${scores}</ul>` : ""}
-    ${cf}
+  const headline = meta.narrativeTitle || meta.title;
+  const technical = `
+    <p class="scrna-deep-run-meta muted">${Number(run.cells_after_qc).toLocaleString()} cells after QC · ${run.n_clusters} clusters · ${run.genes_after_hvg} variable genes</p>
+    ${scores ? `<ul class="research-list">${scores}</ul>` : ""}
     ${
       clusters
-        ? `<p class="research-mini-label">Clusters</p>
-    <div class="research-table-wrap"><table class="research-table research-table--compact">
+        ? `<div class="research-table-wrap"><table class="research-table research-table--compact">
       <thead><tr><th>Cluster</th><th>Cells</th><th>%</th><th>Top marker set</th></tr></thead>
       <tbody>${clusters}</tbody>
     </table></div>`
         : ""
-    }
-    ${figs.length ? renderFigureGrid(figs) : ""}
+    }`;
+
+  const figHtml = figs.length ? renderFigureGrid(figs) : "";
+
+  return `<article class="scrna-deep-run">
+    <div class="scrna-deep-run-layout">
+      <div class="scrna-deep-run-copy">
+        <header class="scrna-deep-run-head">
+          <h3>${escapeHtml(headline)}</h3>
+          ${meta.subtitle ? `<p class="scrna-deep-run-sub muted">${escapeHtml(meta.subtitle)}</p>` : ""}
+          ${meta.insight ? `<p class="scrna-narrative-lead">${escapeHtml(meta.insight)}</p>` : ""}
+        </header>
+        ${cf}
+        <details class="research-details research-details--inline">
+          <summary>Technical detail (QC, clusters, marker scores)</summary>
+          <div class="research-details-body">${technical}</div>
+        </details>
+      </div>
+      ${figHtml ? `<div class="scrna-deep-run-figures">${figHtml}</div>` : ""}
+    </div>
   </article>`;
 }
 

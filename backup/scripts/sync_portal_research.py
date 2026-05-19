@@ -559,7 +559,28 @@ def copy_figures() -> list[str]:
     if inv_report.is_file():
         shutil.copy2(inv_report, SCRNA_FIG / "inventory_report.html")
         copied.append("patient-doctor-portal/research-figures/scrna/inventory_report.html")
+    inv_csv = BACKUP / "scRNA_analysis" / "single_cell_sample_inventory.csv"
+    if inv_csv.is_file():
+        shutil.copy2(inv_csv, SCRNA_FIG / "single_cell_sample_inventory.csv")
+        copied.append("patient-doctor-portal/research-figures/scrna/single_cell_sample_inventory.csv")
     return copied
+
+
+def export_joint_model_if_dataset() -> list[str]:
+    """Export browser joint model when PCOS workbook is on disk."""
+    try:
+        from dataset_paths import PCOS_XLSX
+    except ImportError:
+        return []
+    if not PCOS_XLSX.is_file():
+        return []
+    from export_pcos_joint_model import export_joint_model
+
+    out = FIG_DIR / "pcos_joint_model.json"
+    export_joint_model(out)
+    rel = str(out.relative_to(REPO))
+    print(f"Exported joint model → {rel}")
+    return [rel]
 
 
 def sync_all() -> dict:
@@ -581,6 +602,9 @@ def sync_all() -> dict:
 
     manifest = build_manifest()
     figures = copy_figures()
+    joint_paths = export_joint_model_if_dataset()
+    if joint_paths:
+        figures = figures + joint_paths
     manifest["figuresCopied"] = figures
 
     js = render_research_data_js(manifest)

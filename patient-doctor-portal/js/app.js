@@ -13,13 +13,24 @@ import {
   renderResearchPageHead,
   hydrateScRnaDeep,
   initResearchToc,
+  initScRnaInventoryFilters,
 } from "./researchPage.js";
-import { initLabLookup } from "./researchLabLookup.js";
+import { renderLabLookupSection, initLabLookup } from "./researchLabLookup.js";
+import { initPhenotypeContext } from "./researchPhenotypeContext.js";
+import {
+  renderPatientWellbeingPanel,
+  initPatientWellbeingPanel,
+} from "./patientWellbeingContext.js";
 
 const DOCTOR_SELECTED_PATIENT_KEY = "hearher.doctor.selectedPatient";
 import { mountPatientChat } from "./patientChatPage.js";
 import { mountLearnPage } from "./learnPage.js";
 import { mountCommunityPage } from "./communityPage.js";
+import {
+  renderDoctorModItem,
+  normalizeModerationPayload,
+} from "./communityModerationUi.js";
+import { listRejectedPosts } from "./communityStorage.js";
 import { apiFetch } from "./backend.js";
 import {
   PRODUCT_NAME,
@@ -164,8 +175,8 @@ function renderHeader(session) {
       ? [
           navLink("#/doctor", "Home"),
           navLink("#/doctor/link", "Link patient"),
-          navLink("#/doctor/moderation", "Moderation"),
-          navLink("#/doctor/research", "Research"),
+          navLink("#/doctor/moderation", "Safety log"),
+          navLink("#/doctor/research", "Reference"),
         ].join("")
       : "";
   return `
@@ -236,8 +247,12 @@ function renderLogin(root) {
           <div class="login-panel-inner">
             <div class="login-panel-head">
               ${statusBadge}
-              <h2>Sign in</h2>
-              <p class="muted login-panel-sub">Use a demo email — not real clinical identifiers.</p>
+              <h2 id="loginPanelTitle">Sign in</h2>
+              <p id="loginPanelSub" class="muted login-panel-sub">${
+                api
+                  ? "Sign in with email and password. Display name is only needed when you create an account."
+                  : "Offline demo — email is your local ID; we use the part before @ as your display name."
+              }</p>
             </div>
             <div class="callout callout-info login-status-callout">${statusNote}</div>
             <form id="loginForm" class="login-form">
@@ -249,9 +264,9 @@ function renderLogin(root) {
                 </div>
                 <input type="hidden" id="role" name="role" value="patient" />
               </div>
-              <div class="login-field">
+              <div id="loginDisplayNameField" class="login-field login-field--register-only" hidden>
                 <label for="displayName">Display name</label>
-                <input id="displayName" name="displayName" type="text" autocomplete="name" placeholder="e.g. Alex or Dr. Lee" required />
+                <input id="displayName" name="displayName" type="text" autocomplete="name" placeholder="e.g. Alex or Dr. Lee" />
               </div>
               <div class="login-field">
                 <label for="email">Email</label>
@@ -264,8 +279,12 @@ function renderLogin(root) {
                 }" ${api ? "required minlength=\"4\"" : ""} />
               </div>
               <div class="login-form-actions">
-                <button class="btn btn-primary btn-block" type="submit">Log in</button>
-                ${api ? `<button class="btn btn-ghost btn-block" type="button" id="btnRegister">Create account</button>` : ""}
+                <button class="btn btn-primary btn-block" type="submit" id="btnAuthPrimary">Log in</button>
+                ${
+                  api
+                    ? `<button class="btn btn-ghost btn-block" type="button" id="btnAuthToggle">Create account</button>`
+                    : ""
+                }
               </div>
               <p id="loginMsg" class="login-msg" role="alert"></p>
             </form>
@@ -284,51 +303,61 @@ function renderLogin(root) {
     });
   });
 
+  /** @type {"signin"|"register"} */
+  let authMode = "signin";
+  const displayField = document.getElementById("loginDisplayNameField");
+  const displayInput = document.getElementById("displayName");
+  const panelTitle = document.getElementById("loginPanelTitle");
+  const panelSub = document.getElementById("loginPanelSub");
+  const btnPrimary = document.getElementById("btnAuthPrimary");
+  const btnToggle = document.getElementById("btnAuthToggle");
+
+  function redirectAfterAuth() {
+    const s = getSession();
+    location.hash = s?.role === "doctor" ? "#/doctor" : "#/patient";
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    const registering = mode === "register";
+    if (displayField) displayField.hidden = !registering;
+    if (displayInput) displayInput.required = registering;
+    if (panelTitle) panelTitle.textContent = registering ? "Create account" : "Sign in";
+    if (panelSub) {
+      panelSub.textContent = registering
+        ? "Choose a display name shown in the app. Use a demo email — not real clinical identifiers."
+        : api
+          ? "Sign in with email and password. Display name is only needed when you create an account."
+          : "Offline demo — email is your local ID; we use the part before @ as your display name.";
+    }
+    if (btnPrimary) btnPrimary.textContent = registering ? "Create account" : "Log in";
+    if (btnToggle) btnToggle.textContent = registering ? "Back to sign in" : "Create account";
+  }
 
   const msg = () => document.getElementById("loginMsg");
+
+  if (btnToggle) {
+    btnToggle.addEventListener("click", () => {
+      msg().textContent = "";
+      setAuthMode(authMode === "signin" ? "register" : "signin");
+      if (authMode === "register") displayInput?.focus();
+    });
+  }
+
+  if (api) setAuthMode("signin");
 
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     msg().textContent = "";
     const role = document.getElementById("role").value;
-    const displayName = document.getElementById("displayName").value.trim();
+    const displayName = (document.getElementById("displayName")?.value || "").trim();
     const email = slugifyEmail(document.getElementById("email").value);
     const password = document.getElementById("password").value;
     if (!email) return;
 
-    if (api) {
-      if (!password || password.length < 4) {
-        msg().textContent = "Password must be at least 4 characters in server mode.";
-        return;
-      }
-      try {
-        await apiLogin({ email, password });
-        location.hash = role === "doctor" ? "#/doctor" : "#/patient";
-      } catch (err) {
-        msg().textContent = err instanceof Error ? err.message : String(err);
-      }
-      return;
-    }
-
-    setLocalOnlySession({
-      role,
-      displayName,
-      patientId: email,
-      doctorId: email,
-    });
-    location.hash = role === "doctor" ? "#/doctor" : "#/patient";
-  });
-
-  const regBtn = document.getElementById("btnRegister");
-  if (regBtn) {
-    regBtn.addEventListener("click", async () => {
-      msg().textContent = "";
-      const role = document.getElementById("role").value;
-      const displayName = document.getElementById("displayName").value.trim();
-      const email = slugifyEmail(document.getElementById("email").value);
-      const password = document.getElementById("password").value;
-      if (!email) {
-        msg().textContent = "Email is required.";
+    if (api && authMode === "register") {
+      if (!displayName) {
+        msg().textContent = "Display name is required when creating an account.";
         return;
       }
       if (!password || password.length < 4) {
@@ -338,12 +367,36 @@ function renderLogin(root) {
       try {
         await apiRegister({ email, password, displayName, role });
         await apiLogin({ email, password });
-        location.hash = role === "doctor" ? "#/doctor" : "#/patient";
+        redirectAfterAuth();
       } catch (err) {
         msg().textContent = err instanceof Error ? err.message : String(err);
       }
+      return;
+    }
+
+    if (api) {
+      if (!password || password.length < 4) {
+        msg().textContent = "Password must be at least 4 characters in server mode.";
+        return;
+      }
+      try {
+        await apiLogin({ email, password });
+        redirectAfterAuth();
+      } catch (err) {
+        msg().textContent = err instanceof Error ? err.message : String(err);
+      }
+      return;
+    }
+
+    const offlineName = displayName || email.split("@")[0] || "User";
+    setLocalOnlySession({
+      role,
+      displayName: offlineName,
+      patientId: email,
+      doctorId: email,
     });
-  }
+    location.hash = role === "doctor" ? "#/doctor" : "#/patient";
+  });
 }
 
 async function renderAbout(root) {
@@ -462,7 +515,7 @@ async function renderPatientHome(root) {
           <div class="home-hero-inner">
             <p class="home-eyebrow">${escapeHtml(greeting)}</p>
             <p class="home-hero-tagline">${escapeHtml(PRODUCT_TAGLINE)}</p>
-            <p class="home-lead">Patients: log check-ins and prepare for visits. Clinicians: review linked patients and add visit notes. For PCOS and related gynecologic health.</p>
+            <p class="home-lead">Track how you feel over time and pull together notes before visits with your clinician. Check-ins and support chat live here when you need them.</p>
             <div class="home-hero-actions">
               <a class="btn btn-primary" href="#/patient/checkin">New check-in</a>
               <a class="btn btn-ghost home-hero-ghost" href="#/patient/chat">Open support</a>
@@ -477,10 +530,12 @@ async function renderPatientHome(root) {
 
       ${renderHomeStats(subs, clinicalRecords.length)}
 
+      ${renderPatientWellbeingPanel()}
+
       <section class="home-panel">
         <header class="home-panel-head">
           <h2>Explore</h2>
-          <p class="muted">Everything you need in one place</p>
+          <p class="muted">Check-ins, support, and visit prep</p>
         </header>
         ${renderPatientQuickActions()}
       </section>
@@ -509,6 +564,7 @@ async function renderPatientHome(root) {
     </main>`;
 
   await bindLogout();
+  initPatientWellbeingPanel();
 }
 
 async function renderPatientCheckin(root) {
@@ -723,6 +779,41 @@ async function loadDoctorPatientEmails(session) {
   } catch {
     return [];
   }
+}
+
+/** @param {string} patientEmail */
+async function loadDoctorPatientBundle(patientEmail) {
+  const email = slugifyEmail(patientEmail);
+  const [subs, clinicalRecords] = await Promise.all([
+    fetchDoctorPatientSubmissions(email),
+    fetchDoctorClinicalRecords(email),
+  ]);
+
+  let chatBlock;
+  if (isApiMode()) {
+    const chatRes = await fetchDoctorPatientChat(email);
+    if (!chatRes.consent) {
+      chatBlock = formatChatLogHtml(
+        [],
+        chatRes.message || "Patient has not enabled support chat sharing with linked clinicians."
+      );
+    } else {
+      chatBlock = formatChatLogHtml(chatRes.messages || [], null);
+    }
+  } else if (!getShareChatConsent(email)) {
+    chatBlock = formatChatLogHtml(
+      [],
+      "Patient has not enabled support chat sharing (offline demo)."
+    );
+  } else {
+    chatBlock = formatChatLogHtml(listChatMessages(email), null);
+  }
+
+  return {
+    subs: subs || [],
+    clinicalRecords: clinicalRecords || [],
+    chatBlock,
+  };
 }
 
 function getSelectedDoctorPatient(patientEmails) {
@@ -1020,77 +1111,82 @@ function renderDoctorPatientCard(pid, subs, chatBlock, clinicalRecords) {
     .join("");
 
   return `
-        <div class="card doctor-patient-card" data-patient-email="${escapeHtml(pid)}">
-          <header class="doctor-patient-card-head">
-            <div class="doctor-patient-card-head-row">
-              <span class="badge badge-doctor">Patient record</span>
-              <button type="button" class="btn btn-ghost btn-sm doctor-export-one" data-patient="${escapeHtml(pid)}">Export CSV</button>
-            </div>
-            <h2>${escapeHtml(pid)}</h2>
-            <p class="muted">${subs.length} check-in${subs.length === 1 ? "" : "s"} · ${clinicalRecords.length} diagnosis entr${clinicalRecords.length === 1 ? "y" : "ies"}</p>
-          </header>
+        <div class="doctor-patient-stack">
+          <div class="card doctor-patient-card" data-patient-email="${escapeHtml(pid)}">
+            <header class="doctor-patient-card-head">
+              <div class="doctor-patient-card-head-row">
+                <span class="badge badge-doctor">Patient submissions</span>
+                <button type="button" class="btn btn-ghost btn-sm doctor-export-one" data-patient="${escapeHtml(pid)}">Export CSV</button>
+              </div>
+              <h2>${escapeHtml(pid)}</h2>
+              <p class="muted">What this patient shared — check-ins and optional support chat (read-only here).</p>
+            </header>
 
-          <section class="doctor-section doctor-section--clinical">
-          <h3 class="doctor-section-title">Clinical diagnosis log</h3>
-          <p class="muted">Record a diagnosis after the visit. Entries are saved to the patient record when the server is connected.</p>
-          ${formatClinicalRecordsListHtml(clinicalRecords)}
-          <form class="clinical-record-form" data-patient="${escapeHtml(pid)}">
-            <div class="row two">
-              <div>
-                <label for="diag-name-${slug}">Diagnosis name</label>
-                <input id="diag-name-${slug}" name="diagnosisName" type="text" list="diag-suggestions-${slug}" required maxlength="200" placeholder="e.g. PCOS" />
-                <datalist id="diag-suggestions-${slug}">
-                  ${CLINICAL_DIAGNOSIS_SUGGESTIONS.map((d) => `<option value="${escapeHtml(d)}"></option>`).join("")}
-                </datalist>
-              </div>
-              <div>
-                <label for="diag-conf-${slug}">Status</label>
-                <select id="diag-conf-${slug}" name="confirmed" required>
-                  <option value="true">Confirmed</option>
-                  <option value="false">Provisional / rule out</option>
-                </select>
-              </div>
-            </div>
-            <div class="row">
-              <div>
-                <label for="diag-notes-${slug}">Clinical notes</label>
-                <textarea id="diag-notes-${slug}" name="notes" rows="3" maxlength="4000" placeholder="Plan, follow-up, differentials…"></textarea>
-              </div>
-            </div>
-            <div class="row">
-              <div>
-                <label for="diag-sub-${slug}">Link to check-in (optional)</label>
-                <select id="diag-sub-${slug}" name="linkedSubmissionId">
-                  <option value="">— None —</option>
-                  ${submissionOptions}
-                </select>
-              </div>
-            </div>
-            <p class="muted clinical-form-msg" id="clinical-msg-${slug}"></p>
-            <button type="submit" class="btn btn-primary">Save diagnosis to database</button>
-          </form>
-          </section>
+            <section class="doctor-section doctor-section--checkins doctor-section--first">
+              <h3 class="doctor-section-title">Check-in submissions</h3>
+              ${subs.length === 0 ? `<p class="muted">No submissions from this patient yet.</p>` : `
+              <table>
+                <thead><tr><th>Time (ISO)</th><th>Answers (JSON)</th><th>Patient-facing summary</th></tr></thead>
+                <tbody>
+                  ${subs.map((s) => `
+                    <tr>
+                      <td>${escapeHtml(s.submittedAt)}</td>
+                      <td><pre style="margin:0;white-space:pre-wrap;font-size:0.82rem;">${escapeHtml(JSON.stringify(s.answers, null, 2))}</pre></td>
+                      <td class="doctor-summary-cell">${formatSummaryCellHtml(s)}</td>
+                    </tr>`).join("")}
+                </tbody>
+              </table>`}
+            </section>
 
-          <section class="doctor-section doctor-section--chat">
-          <h3 class="doctor-section-title">Support chat (with consent)</h3>
-          ${chatBlock}
-          </section>
+            <section class="doctor-section doctor-section--chat">
+              <h3 class="doctor-section-title">Support chat (with consent)</h3>
+              ${chatBlock}
+            </section>
+          </div>
 
-          <section class="doctor-section doctor-section--checkins">
-          <h3 class="doctor-section-title">Check-in submissions</h3>
-          ${subs.length === 0 ? `<p class="muted">No submissions from this patient yet.</p>` : `
-          <table>
-            <thead><tr><th>Time (ISO)</th><th>Answers (JSON)</th><th>Patient-facing summary</th></tr></thead>
-            <tbody>
-              ${subs.map((s) => `
-                <tr>
-                  <td>${escapeHtml(s.submittedAt)}</td>
-                  <td><pre style="margin:0;white-space:pre-wrap;font-size:0.82rem;">${escapeHtml(JSON.stringify(s.answers, null, 2))}</pre></td>
-                  <td class="doctor-summary-cell">${formatSummaryCellHtml(s)}</td>
-                </tr>`).join("")}
-            </tbody>
-          </table>`}
-          </section>
+          <div class="card doctor-clinical-card" data-patient-email="${escapeHtml(pid)}">
+            <header class="doctor-clinical-card-head">
+              <span class="badge badge-doctor badge-doctor--clinical">Visit documentation</span>
+              <h2>Clinical diagnosis log</h2>
+              <p class="muted">Your notes after the visit. Saved to this patient's chart when the server is connected; they can read entries on their home screen.</p>
+            </header>
+            ${formatClinicalRecordsListHtml(clinicalRecords)}
+            <form class="clinical-record-form" data-patient="${escapeHtml(pid)}">
+              <div class="row two">
+                <div>
+                  <label for="diag-name-${slug}">Diagnosis name</label>
+                  <input id="diag-name-${slug}" name="diagnosisName" type="text" list="diag-suggestions-${slug}" required maxlength="200" placeholder="e.g. PCOS" />
+                  <datalist id="diag-suggestions-${slug}">
+                    ${CLINICAL_DIAGNOSIS_SUGGESTIONS.map((d) => `<option value="${escapeHtml(d)}"></option>`).join("")}
+                  </datalist>
+                </div>
+                <div>
+                  <label for="diag-conf-${slug}">Status</label>
+                  <select id="diag-conf-${slug}" name="confirmed" required>
+                    <option value="true">Confirmed</option>
+                    <option value="false">Provisional / rule out</option>
+                  </select>
+                </div>
+              </div>
+              <div class="row">
+                <div>
+                  <label for="diag-notes-${slug}">Clinical notes</label>
+                  <textarea id="diag-notes-${slug}" name="notes" rows="3" maxlength="4000" placeholder="Plan, follow-up, differentials…"></textarea>
+                </div>
+              </div>
+              <div class="row">
+                <div>
+                  <label for="diag-sub-${slug}">Link to check-in (optional)</label>
+                  <select id="diag-sub-${slug}" name="linkedSubmissionId">
+                    <option value="">— None —</option>
+                    ${submissionOptions}
+                  </select>
+                </div>
+              </div>
+              <p class="muted clinical-form-msg" id="clinical-msg-${slug}"></p>
+              <button type="submit" class="btn btn-primary">Save diagnosis</button>
+            </form>
+          </div>
         </div>`;
 }
 
@@ -1154,8 +1250,13 @@ async function renderDoctorHome(root) {
         bundle.chatBlock,
         bundle.clinicalRecords
       );
-    } catch {
-      activeCard = `<div class="card"><p class="muted">Could not load this patient’s record.</p></div>`;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      activeCard = `<div class="card callout danger">
+        <p><strong>Could not load this patient’s record.</strong></p>
+        <p class="muted">${escapeHtml(detail)}</p>
+        <p class="muted">Check that the patient is still linked, the server is running, and you are signed in as a clinician.</p>
+      </div>`;
     }
   }
 
@@ -1206,8 +1307,8 @@ async function renderDoctorHome(root) {
         </div>
         <div class="doctor-dash-actions btn-row">
           <a class="btn btn-primary" href="#/doctor/link">Link patient</a>
-          <a class="btn btn-ghost" href="#/doctor/moderation">Moderation queue</a>
-          <a class="btn btn-ghost" href="#/doctor/research">Research library</a>
+          <a class="btn btn-ghost" href="#/doctor/moderation">Safety log (flagged posts)</a>
+          <a class="btn btn-ghost" href="#/doctor/research">Reference library</a>
         </div>
       </section>
 
@@ -1263,14 +1364,42 @@ async function renderPatientCommunity(root) {
   });
 }
 
+function mapLocalRejectedPost(p) {
+  return {
+    id: p.id,
+    authorDisplay: p.authorDisplay || p.authorId || "Patient",
+    body: p.body,
+    status: p.status || "rejected",
+    moderationReason: p.moderationReason || "",
+    patientMessage: p.patientMessage || p.moderationReason || "",
+    guidanceType: p.guidanceType || "warning",
+    createdAt: p.createdAt || "",
+    patientEmail: p.authorId || "",
+  };
+}
+
 async function renderDoctorModeration(root) {
   const session = requireSession("doctor");
   if (!session) return;
 
-  let data = { posts: [], comments: [], note: "" };
+  const patientEmails = await loadDoctorPatientEmails(session);
+
+  let data = normalizeModerationPayload(null, patientEmails);
   try {
     if (isApiMode()) {
-      data = await apiFetch("/doctor/community/moderation");
+      const raw = await apiFetch("/doctor/community/moderation");
+      data = normalizeModerationPayload(raw, patientEmails);
+    } else {
+      const rejected = listRejectedPosts().map(mapLocalRejectedPost);
+      const linkedSet = new Set(patientEmails.map((e) => e.toLowerCase()));
+      data = {
+        allPosts: rejected,
+        allComments: [],
+        linkedPosts: rejected.filter((p) => linkedSet.has(String(p.patientEmail).toLowerCase())),
+        linkedComments: [],
+        note:
+          "Offline mode: showing rejected community posts stored in this browser only. Run python3 server.py for the full safety log.",
+      };
     }
   } catch (e) {
     root.innerHTML =
@@ -1280,30 +1409,65 @@ async function renderDoctorModeration(root) {
     return;
   }
 
-  const renderItem = (item, kind) => `
-    <div class="mod-item">
-      <span class="badge badge-status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
-      <strong>${escapeHtml(kind)}</strong> · ${escapeHtml(item.authorDisplay)} · <span class="muted">${escapeHtml(item.createdAt)}</span>
-      <p>${escapeHtml(item.body)}</p>
-      <p class="muted">${escapeHtml(item.moderationReason || "")}</p>
-    </div>`;
+  let modTab =
+    data.linkedPosts.length > 0 || data.linkedComments.length > 0 ? "linked" : "all";
 
-  const patientEmails = await loadDoctorPatientEmails(session);
+  const renderQueue = (posts, comments) => {
+    const postsHtml = posts?.length
+      ? posts.map((p) => renderDoctorModItem(p, "Post", escapeHtml)).join("")
+      : '<p class="muted">No flagged posts in this view.</p>';
+    const commentsHtml = comments?.length
+      ? comments.map((c) => renderDoctorModItem(c, "Comment", escapeHtml)).join("")
+      : '<p class="muted">No flagged comments in this view.</p>';
+    return `<h2>Flagged posts</h2>${postsHtml}<h2>Flagged comments</h2>${commentsHtml}`;
+  };
 
-  root.innerHTML =
-    renderHeader(session) +
-    renderDoctorPatientContext(patientEmails) +
-    `
+  const paint = () => {
+    const linked = modTab === "linked";
+    const posts = linked ? data.linkedPosts : data.allPosts;
+    const comments = linked ? data.linkedComments : data.allComments;
+    const linkedCount = (data.linkedPosts?.length || 0) + (data.linkedComments?.length || 0);
+    const allCount = (data.allPosts?.length || 0) + (data.allComments?.length || 0);
+
+    root.innerHTML =
+      renderHeader(session) +
+      renderDoctorPatientContext(patientEmails) +
+      `
     <main class="doctor-main">
       <div class="card prose">
-        <h1>Community moderation</h1>
-        <p class="muted">${escapeHtml(data.note || "Queue of posts and comments flagged during automated review. Administrators can approve or reject content.")}</p>
-        <h2>Flagged posts</h2>
-        ${data.posts?.length ? data.posts.map((p) => renderItem(p, "Post")).join("") : "<p class=\"muted\">None</p>"}
-        <h2>Flagged comments</h2>
-        ${data.comments?.length ? data.comments.map((c) => renderItem(c, "Comment")).join("") : "<p class=\"muted\">None</p>"}
+        <h1>Safety log</h1>
+        <p class="muted">${escapeHtml(
+          data.note ||
+            "Read-only log of community content that was not published. Follow up with linked patients when guidance suggests clinical or crisis support."
+        )}</p>
+        <div class="mod-tabs" role="tablist">
+          <button type="button" class="mod-tab ${linked ? "mod-tab--active" : ""}" data-mod-tab="linked">
+            Linked patients (${linkedCount})
+          </button>
+          <button type="button" class="mod-tab ${!linked ? "mod-tab--active" : ""}" data-mod-tab="all">
+            All patients (${allCount})
+          </button>
+        </div>
+        <div id="modQueueBody">${renderQueue(posts, comments)}</div>
+        ${
+          !isApiMode()
+            ? `<p class="muted mod-offline-hint">Start the server with <code>python3 server.py</code> and open <code>http://127.0.0.1:8000</code> to load the full safety log from the database.</p>`
+            : linkedCount === 0 && allCount > 0 && linked
+              ? `<p class="callout callout-info">No flagged items from your <strong>linked</strong> patients. Switch to <strong>All patients</strong> or link the patient at Doctor → Link patient.</p>`
+              : ""
+        }
       </div>
     </main>`;
+
+    root.querySelectorAll("[data-mod-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        modTab = btn.getAttribute("data-mod-tab") || "linked";
+        paint();
+      });
+    });
+  };
+
+  paint();
   await bindLogout();
 }
 
@@ -1375,6 +1539,8 @@ ${renderResearchPageHead()}
 
   await bindLogout();
   await hydrateScRnaDeep();
+  initScRnaInventoryFilters();
+  initPhenotypeContext(renderLabLookupSection);
   initLabLookup();
   initResearchToc();
 }
@@ -1695,8 +1861,14 @@ async function router() {
 }
 
 window.addEventListener("hashchange", () => void router());
-window.addEventListener("load", async () => {
+window.addEventListener("pageshow", (ev) => {
+  if (ev.persisted) void router();
+});
+
+async function bootPortal() {
   await initPortal();
   if (!location.hash) location.hash = "#/login";
   await router();
-});
+}
+
+window.addEventListener("load", () => void bootPortal());

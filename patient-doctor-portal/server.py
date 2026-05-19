@@ -29,14 +29,18 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ai_chat_backend import generate_reply, is_configured as ai_chat_configured
-from ai_moderation import moderate_community_text
+from ai_moderation import (
+    moderate_community_text,
+    moderation_guidance_json,
+    parse_moderation_guidance,
+)
 from checkin_validation import validate_checkin_answers
 from summary_backend import build_patient_summary
 from csv_export import (
@@ -85,6 +89,15 @@ def _ensure_submission_columns(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(submissions)").fetchall()}
     if "deleted_at" not in cols:
         conn.execute("ALTER TABLE submissions ADD COLUMN deleted_at TEXT")
+
+
+def _ensure_community_columns(conn: sqlite3.Connection) -> None:
+    for table in ("community_posts", "community_comments"):
+        cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if "moderation_guidance_json" not in cols:
+            conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN moderation_guidance_json TEXT NOT NULL DEFAULT '{{}}'"
+            )
 
 
 def init_db() -> None:
@@ -179,6 +192,7 @@ def init_db() -> None:
         )
         _ensure_user_columns(conn)
         _ensure_submission_columns(conn)
+        _ensure_community_columns(conn)
 
 
 class RegisterBody(BaseModel):
@@ -458,29 +472,74 @@ def clear_chat(user: sqlite3.Row = Depends(get_current_user)) -> dict:
     return {"ok": True}
 
 
-def _community_post_row(r: sqlite3.Row, comment_count: int = 0) -> dict:
-    return {
+def _enrich_moderation_guidance(r: sqlite3.Row, guidance: dict) -> dict:
+    """Backfill guidance for rows saved before moderation_guidance_json existed."""
+    body = (r["body"] or "").lower()
+    reason = (r["moderation_reason"] or "").strip()
+    flags = []
+    try:
+        flags = json.loads(r["moderation_flags_json"] or "[]")
+    except json.JSONDecodeError:
+        pass
+
+    if r["status"] == "approved":
+        return guidance
+
+    gt = guidance.get("guidanceType") or "none"
+    msg = (guidance.get("patientMessage") or "").strip()
+
+    if gt == "none":
+        if any(w in body for w in ("suicid", "kill myself", "want to die", "severe bleeding", "fainting")):
+            gt = "emergency"
+        elif any("emergency" in str(f).lower() for f in flags):
+            gt = "emergency"
+        elif any("policy" in str(f).lower() for f in flags):
+            gt = "warning"
+        elif reason:
+            gt = "warning"
+
+    if not msg and reason:
+        msg = reason
+
+    return {"guidanceType": gt, "patientMessage": msg[:800]}
+
+
+def _community_post_row(r: sqlite3.Row, comment_count: int = 0, *, patient_email: str | None = None) -> dict:
+    guidance = _enrich_moderation_guidance(r, parse_moderation_guidance(r))
+    out = {
         "id": r["id"],
         "authorDisplay": r["author_display"],
         "body": r["body"],
         "status": r["status"],
         "moderationReason": r["moderation_reason"],
         "moderationFlags": json.loads(r["moderation_flags_json"] or "[]"),
+        "guidanceType": guidance["guidanceType"],
+        "patientMessage": guidance["patientMessage"],
         "createdAt": r["created_at"],
         "commentCount": comment_count,
     }
+    if patient_email is not None:
+        out["patientEmail"] = patient_email
+    return out
 
 
-def _community_comment_row(r: sqlite3.Row) -> dict:
-    return {
+def _community_comment_row(r: sqlite3.Row, *, patient_email: str | None = None) -> dict:
+    guidance = _enrich_moderation_guidance(r, parse_moderation_guidance(r))
+    out = {
         "id": r["id"],
         "postId": r["post_id"],
         "authorDisplay": r["author_display"],
         "body": r["body"],
         "status": r["status"],
         "moderationReason": r["moderation_reason"],
+        "moderationFlags": json.loads(r["moderation_flags_json"] or "[]"),
+        "guidanceType": guidance["guidanceType"],
+        "patientMessage": guidance["patientMessage"],
         "createdAt": r["created_at"],
     }
+    if patient_email is not None:
+        out["patientEmail"] = patient_email
+    return out
 
 
 @app.get("/api/community/posts")
@@ -530,8 +589,9 @@ def create_community_post(body: CommunityBody, user: sqlite3.Row = Depends(get_c
         conn.execute(
             """
             INSERT INTO community_posts
-            (id, author_user_id, author_display, body, status, moderation_reason, moderation_flags_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (id, author_user_id, author_display, body, status, moderation_reason, moderation_flags_json,
+             moderation_guidance_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 pid,
@@ -541,6 +601,7 @@ def create_community_post(body: CommunityBody, user: sqlite3.Row = Depends(get_c
                 status,
                 mod["reason"],
                 json.dumps(mod.get("flags") or []),
+                moderation_guidance_json(mod),
                 created,
             ),
         )
@@ -583,8 +644,9 @@ def create_post_comment(
         conn.execute(
             """
             INSERT INTO community_comments
-            (id, post_id, author_user_id, author_display, body, status, moderation_reason, moderation_flags_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, post_id, author_user_id, author_display, body, status, moderation_reason, moderation_flags_json,
+             moderation_guidance_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 cid,
@@ -595,6 +657,7 @@ def create_post_comment(
                 status,
                 mod["reason"],
                 json.dumps(mod.get("flags") or []),
+                moderation_guidance_json(mod),
                 created,
             ),
         )
@@ -604,26 +667,76 @@ def create_post_comment(
 
 @app.get("/api/doctor/community/moderation")
 def doctor_moderation_queue(user: sqlite3.Row = Depends(get_current_user)) -> dict:
-    """Demo admin view — future: dedicated admin role."""
+    """Read-only safety log: flagged posts/comments (not published to the public feed)."""
     if user["role"] != "doctor":
-        raise HTTPException(status_code=403, detail="Doctors only (demo moderator)")
+        raise HTTPException(status_code=403, detail="Doctors only")
+    doctor_id = user["id"]
     with get_db() as conn:
-        posts = conn.execute(
+        all_posts = conn.execute(
             """
-            SELECT * FROM community_posts WHERE status != 'approved'
-            ORDER BY created_at DESC LIMIT 50
+            SELECT p.*, u.email AS patient_email
+            FROM community_posts p
+            JOIN users u ON u.id = p.author_user_id
+            WHERE p.status != 'approved'
+            ORDER BY p.created_at DESC
+            LIMIT 50
             """
         ).fetchall()
-        comments = conn.execute(
+        all_comments = conn.execute(
             """
-            SELECT * FROM community_comments WHERE status != 'approved'
-            ORDER BY created_at DESC LIMIT 50
+            SELECT c.*, u.email AS patient_email
+            FROM community_comments c
+            JOIN users u ON u.id = c.author_user_id
+            WHERE c.status != 'approved'
+            ORDER BY c.created_at DESC
+            LIMIT 50
             """
+        ).fetchall()
+        linked_posts = conn.execute(
+            """
+            SELECT p.*, u.email AS patient_email
+            FROM community_posts p
+            JOIN users u ON u.id = p.author_user_id
+            WHERE p.status != 'approved'
+              AND p.author_user_id IN (
+                SELECT patient_user_id FROM doctor_patient_links WHERE doctor_user_id = ?
+              )
+            ORDER BY p.created_at DESC
+            LIMIT 50
+            """,
+            (doctor_id,),
+        ).fetchall()
+        linked_comments = conn.execute(
+            """
+            SELECT c.*, u.email AS patient_email
+            FROM community_comments c
+            JOIN users u ON u.id = c.author_user_id
+            WHERE c.status != 'approved'
+              AND c.author_user_id IN (
+                SELECT patient_user_id FROM doctor_patient_links WHERE doctor_user_id = ?
+              )
+            ORDER BY c.created_at DESC
+            LIMIT 50
+            """,
+            (doctor_id,),
         ).fetchall()
     return {
-        "posts": [_community_post_row(r, 0) for r in posts],
-        "comments": [_community_comment_row(r) for r in comments],
-        "note": "Moderation queue for content flagged during automated review.",
+        "allPosts": [
+            _community_post_row(r, 0, patient_email=r["patient_email"]) for r in all_posts
+        ],
+        "allComments": [
+            _community_comment_row(r, patient_email=r["patient_email"]) for r in all_comments
+        ],
+        "linkedPosts": [
+            _community_post_row(r, 0, patient_email=r["patient_email"]) for r in linked_posts
+        ],
+        "linkedComments": [
+            _community_comment_row(r, patient_email=r["patient_email"]) for r in linked_comments
+        ],
+        "note": (
+            "Read-only safety log. Rejected content never appears in the public feed. "
+            "Use the Linked patients tab to follow up with your panel; All patients shows the full demo queue."
+        ),
     }
 
 
@@ -1040,6 +1153,38 @@ def _submission_from_row(r: sqlite3.Row) -> dict:
     if "deleted_at" in r.keys() and r["deleted_at"]:
         out["deletedAt"] = r["deleted_at"]
     return out
+
+
+SCRNA_INVENTORY_HTML = BASE_DIR / "research-figures" / "scrna" / "inventory_report.html"
+
+
+REFERENCE_PORTAL_URL = "/index.html#/doctor/research"
+
+
+@app.get("/back/reference")
+def back_to_reference_library():
+    """Reliable return path from standalone inventory HTML into the SPA Reference tab."""
+    return RedirectResponse(url=REFERENCE_PORTAL_URL, status_code=302)
+
+
+@app.get("/back/reference/", include_in_schema=False)
+def back_to_reference_library_slash():
+    return RedirectResponse(url=REFERENCE_PORTAL_URL, status_code=302)
+
+
+@app.get("/research-figures/scrna/inventory_report.html")
+def serve_scrna_inventory_report():
+    """Serve inventory HTML with no-cache so browsers do not keep the old JSON dump."""
+    if not SCRNA_INVENTORY_HTML.is_file():
+        raise HTTPException(status_code=404, detail="Inventory report not found")
+    return FileResponse(
+        SCRNA_INVENTORY_HTML,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Cache-Control": "no-store, max-age=0, must-revalidate",
+            "X-Inventory-Report-Version": "4",
+        },
+    )
 
 
 app.mount("/", StaticFiles(directory=str(BASE_DIR), html=True), name="static")
