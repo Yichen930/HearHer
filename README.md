@@ -1,4 +1,11 @@
-<h1 align="left" style="margin: 0 0 0.25em 0; line-height: 1;">HearHer<img src="patient-doctor-portal/logo/HearHer-logo.png" alt="" width="72" style="vertical-align: bottom; margin-left: 14px; border: 0;" /></h1>
+<h1 align="left" style="margin: 0 0 0.25em 0; padding: 0;">
+<table>
+<tr>
+<td style="vertical-align: bottom; border: none; padding: 0 14px 0 0; font-size: inherit; font-weight: inherit;">HearHer</td>
+<td style="vertical-align: bottom; border: none; padding: 0;"><img src="patient-doctor-portal/logo/HearHer-logo.png" alt="" width="72" /></td>
+</tr>
+</table>
+</h1>
 
 <p align="left"><em>Hear her. Care, connected.</em> · PCOS &amp; endometriosis education and care coordination (local demo).</p>
 
@@ -41,7 +48,25 @@ python3 server.py
 
 Requires **Python 3.10+**. On macOS and Linux, use `python3` as above. On Windows, if `python3` is not found, try `python` or `py -3` instead (same commands). Check with `python3 --version` or `python --version`.
 
-Open **http://127.0.0.1:8000** and register as a patient and/or clinician. The same command serves the UI, accounts, check-ins (saved under `data/`), and the clinician **Research** tab.
+Open **http://127.0.0.1:8000**. The same command serves the UI, accounts, check-ins (saved under `data/`), and the clinician **Research** tab.
+
+### Demo accounts (judges / presentation)
+
+```bash
+cd patient-doctor-portal
+python3 scripts/reset_demo.py    # stop server first
+python3 scripts/seed_demo.py
+python3 server.py
+```
+
+Clear browser storage for `localhost`, then sign in:
+
+| Role | Email | Password |
+|------|--------|----------|
+| Patient | `patient@gmail.com` | `2026` |
+| Clinician | `doctor@gmail.com` | `2026` |
+
+Includes a linked pair, one sample check-in, and chat sharing enabled. **4-minute walkthrough:** [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
 
 **Optional AI chat**
 
@@ -89,6 +114,7 @@ Full pipeline docs: [backup/README.md](backup/README.md)
 
 - App features & CSV export: [patient-doctor-portal/README.md](patient-doctor-portal/README.md)
 - Routes and modules: [patient-doctor-portal/WEBSITE_LOGIC.md](patient-doctor-portal/WEBSITE_LOGIC.md)
+- Demo script (~4 min): [DEMO_SCRIPT.md](DEMO_SCRIPT.md)
 
 ## Disclaimer
 
