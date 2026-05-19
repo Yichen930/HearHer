@@ -84,6 +84,51 @@ header.app-header .brand:hover {
   opacity: 0.92;
 }
 
+.brand-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brand-logo--header {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.brand-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.brand-header-name {
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.brand-header-tagline {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+@media (max-width: 520px) {
+  .brand-header-tagline {
+    display: none;
+  }
+}
+
 .brand-lockup {
   display: flex;
   flex-direction: column;
@@ -2272,9 +2317,52 @@ main.home-main {
 }
 
 /* Research library zones */
+.research-page-head {
+  padding: 18px 20px 16px;
+}
+
 .research-page-head h1 {
   margin: 8px 0 6px;
   font-size: 1.55rem;
+}
+
+.research-page-head-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.research-head-stat {
+  text-align: center;
+  padding: 10px 8px;
+  border-radius: var(--radius);
+  background: var(--accent-muted);
+}
+
+.research-head-stat-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.research-head-stat-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+  .research-page-head-stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 .research-layout {
@@ -2283,12 +2371,104 @@ main.home-main {
   gap: 16px;
 }
 
+.research-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-alt, #f8f9fb);
+  font-size: 0.85rem;
+}
+
+.research-toc-link {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.research-toc-link:hover {
+  text-decoration: underline;
+}
+
+.research-toc-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.scrna-deep-scope {
+  margin-bottom: 14px;
+}
+
+.scrna-deep-scope p {
+  margin: 0 0 8px;
+}
+
+.research-scrna-deep-title {
+  margin: 18px 0 10px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.research-table-wrap--scroll {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.scrna-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.scrna-badge--deep {
+  background: #ede8f5;
+  color: #4a3560;
+}
+
+.scrna-badge--inventory {
+  background: #eef4fb;
+  color: #2a4a6f;
+}
+
+.research-details {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  background: #fafbfc;
+}
+
+.research-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.research-cohort-caveat {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+}
+
 .research-zone {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
   background: #fff;
   box-shadow: var(--shadow-sm);
+  scroll-margin-top: 88px;
 }
 
 .research-zone-head {
@@ -2310,6 +2490,42 @@ main.home-main {
 
 .research-zone-body {
   padding: 16px 18px 18px;
+}
+
+.research-zone-foot {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  text-align: right;
+}
+
+.research-back-to-top {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.research-back-to-top:hover {
+  color: var(--accent-hover);
+}
+
+.research-back-to-top:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+#research-top {
+  scroll-margin-top: 88px;
 }
 
 .research-zone--cohort .research-zone-head {

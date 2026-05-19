@@ -8,7 +8,12 @@ import {
 } from "./storage.js";
 import { buildPatientSummary } from "./summary.js";
 import { validateCheckinAnswers } from "./checkinValidation.js";
-import { renderDoctorResearchBody, hydrateScRnaDeep } from "./researchPage.js";
+import {
+  renderDoctorResearchBody,
+  renderResearchPageHead,
+  hydrateScRnaDeep,
+  initResearchToc,
+} from "./researchPage.js";
 import { initLabLookup } from "./researchLabLookup.js";
 
 const DOCTOR_SELECTED_PATIENT_KEY = "hearher.doctor.selectedPatient";
@@ -1362,11 +1367,7 @@ async function renderDoctorResearch(root) {
     renderDoctorPatientContext(patientEmails) +
     `
     <main class="doctor-main research-page">
-      <header class="card research-page-head">
-        <span class="badge badge-doctor">Research library</span>
-        <h1>Clinician research &amp; analysis library</h1>
-        <p class="muted">Published supplementary cohort statistics, model outputs, single-cell inventory, and figures — separated from linked patients on the dashboard.</p>
-      </header>
+${renderResearchPageHead()}
       <div class="research-layout">
         ${renderDoctorResearchBody()}
       </div>
@@ -1375,6 +1376,7 @@ async function renderDoctorResearch(root) {
   await bindLogout();
   await hydrateScRnaDeep();
   initLabLookup();
+  initResearchToc();
 }
 
 async function renderDoctorLink(root) {

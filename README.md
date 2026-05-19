@@ -1,11 +1,6 @@
-<h1 align="left" style="margin: 0 0 0.4em 0; padding: 0;">
-<table>
-<tr>
-<td style="vertical-align: bottom; border: none; padding: 0 14px 0 0; font-size: inherit; font-weight: inherit;">HearHer</td>
-<td style="vertical-align: bottom; border: none; padding: 0;"><img src="patient-doctor-portal/logo/HearHer-logo.png" alt="" width="72" /></td>
-</tr>
-</table>
-</h1>
+<h1 align="left" style="margin: 0 0 0.25em 0; line-height: 1;">HearHer<img src="patient-doctor-portal/logo/HearHer-logo.png" alt="" width="72" style="vertical-align: bottom; margin-left: 14px; border: 0;" /></h1>
+
+<p align="left"><em>Hear her. Care, connected.</em> · PCOS &amp; endometriosis education and care coordination (local demo).</p>
 
 **HearHer** helps people living with PCOS or endometriosis track symptoms, prepare for visits, and learn from population-level research—while giving clinicians a structured view of the same journey. It runs as a local web app (patient portal + clinician workspace). Numbers in the UI come from published-style cohort analysis; the app is for **education and care coordination**, not diagnosis.
 

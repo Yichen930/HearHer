@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-17T13:36:13.710500+00:00",
+  "generatedAt": "2026-05-19T12:20:25.091827+00:00",
   "sources": {
     "analysis_summary": "/Users/sophie/Desktop/BioHackzard/backup/analysis_output/analysis_summary.json",
     "compare_summary": "/Users/sophie/Desktop/BioHackzard/backup/compare_output/pcos_vs_endo_summary.json",
@@ -208,6 +208,193 @@
       "nnzPerCell": 3774
     }
   ],
+  "scrnaLibraryInventory": [
+    {
+      "dataset": "Endometrium",
+      "library": "UA_Endo12269811",
+      "arm": null,
+      "cells": 5734,
+      "nnzPerCell": 3450,
+      "deepOnPortal": true
+    },
+    {
+      "dataset": "Endometrium",
+      "library": "UA_Endo12604667",
+      "arm": null,
+      "cells": 4844,
+      "nnzPerCell": 3864,
+      "deepOnPortal": true
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc02-C",
+      "arm": "Control (C)",
+      "cells": 3361,
+      "nnzPerCell": 4120,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc02-F",
+      "arm": "Forskolin (F)",
+      "cells": 4051,
+      "nnzPerCell": 3601,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc03-C",
+      "arm": "Control (C)",
+      "cells": 3689,
+      "nnzPerCell": 4281,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc03-F",
+      "arm": "Forskolin (F)",
+      "cells": 4663,
+      "nnzPerCell": 3002,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc06-C",
+      "arm": "Control (C)",
+      "cells": 2600,
+      "nnzPerCell": 5061,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc06-F",
+      "arm": "Forskolin (F)",
+      "cells": 4126,
+      "nnzPerCell": 3537,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc10-C",
+      "arm": "Control (C)",
+      "cells": 2212,
+      "nnzPerCell": 4003,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc10-F",
+      "arm": "Forskolin (F)",
+      "cells": 4054,
+      "nnzPerCell": 2942,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc16-C",
+      "arm": "Control (C)",
+      "cells": 3035,
+      "nnzPerCell": 4336,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc16-F",
+      "arm": "Forskolin (F)",
+      "cells": 3147,
+      "nnzPerCell": 3782,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc26-C",
+      "arm": "Control (C)",
+      "cells": 2695,
+      "nnzPerCell": 3774,
+      "deepOnPortal": true
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc26-F",
+      "arm": "Forskolin (F)",
+      "cells": 2373,
+      "nnzPerCell": 3661,
+      "deepOnPortal": true
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc27-C",
+      "arm": "Control (C)",
+      "cells": 2845,
+      "nnzPerCell": 4283,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc27-F",
+      "arm": "Forskolin (F)",
+      "cells": 5273,
+      "nnzPerCell": 2956,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc31-C",
+      "arm": "Control (C)",
+      "cells": 2045,
+      "nnzPerCell": 4560,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc31-F",
+      "arm": "Forskolin (F)",
+      "cells": 4268,
+      "nnzPerCell": 3476,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc40-C",
+      "arm": "Control (C)",
+      "cells": 2050,
+      "nnzPerCell": 4861,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc40-F",
+      "arm": "Forskolin (F)",
+      "cells": 4177,
+      "nnzPerCell": 3274,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc50-C",
+      "arm": "Control (C)",
+      "cells": 4274,
+      "nnzPerCell": 4001,
+      "deepOnPortal": false
+    },
+    {
+      "dataset": "PCOS ovarian",
+      "library": "Mc50-F",
+      "arm": "Forskolin (F)",
+      "cells": 5285,
+      "nnzPerCell": 2922,
+      "deepOnPortal": false
+    }
+  ],
+  "scrnaDeepScope": {
+    "inventoryLibraries": 22,
+    "deepRunsOnPortal": 2,
+    "deepRunLabels": [
+      "Endometrium \u2014 combined UMAP / Leiden (both supplementary libraries)",
+      "PCOS Mc26 \u2014 control vs forskolin UMAP / androgen-pathway comparison"
+    ],
+    "summary": "All 22 published 10x libraries are inventoried below (genes \u00d7 cells from MTX headers). Full Scanpy QC, clustering, and UMAP on this page cover endometrium and the Mc26 donor pair (representative forskolin stimulation design in the PCOS ovarian dataset). The remaining 18 PCOS libraries share the same study design (10 donors \u00d7 control/forskolin); re-running deep analysis for every library is supported offline via backup/scripts/scrna_deep_analysis.py."
+  },
   "labCohortReference": [
     {
       "id": "amh_ng_ml",
@@ -780,7 +967,8 @@
     "patient-doctor-portal/research-figures/pcos-vs-endo-features.png",
     "patient-doctor-portal/research-figures/pcos-vs-endo-coefficients.png",
     "patient-doctor-portal/research-figures/scrna/umap_endometrium.png",
-    "patient-doctor-portal/research-figures/scrna/umap_Mc26.png"
+    "patient-doctor-portal/research-figures/scrna/umap_Mc26.png",
+    "patient-doctor-portal/research-figures/scrna/inventory_report.html"
   ],
   "researchDataJs": "patient-doctor-portal/js/researchData.js"
 }

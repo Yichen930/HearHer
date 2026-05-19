@@ -7,9 +7,11 @@ export const TEAM_CREDIT = `Produced by ${TEAM_NAME}`;
 
 /** Official logo (1024×1024, transparent PNG embedded in SVG). */
 export const LOGO_URL = "/logo/HearHer-logo-from-png.svg";
+export const LOGO_PNG_URL = "/logo/HearHer-logo.png";
 
 /** @type {Record<string, { w: number, h: number }>} */
 const LOGO_DIMS = {
+  header: { w: 44, h: 44 },
   sm: { w: 88, h: 88 },
   md: { w: 280, h: 280 },
   lg: { w: 280, h: 280 },
@@ -53,7 +55,14 @@ export function renderHeaderBrand(session) {
       ? "#/doctor"
       : "#/patient"
     : "#/about";
-  return `<a href="${href}" class="brand">${renderLogo({ size: "sm" })}</a>`;
+  const dim = LOGO_DIMS.header;
+  return `<a href="${href}" class="brand brand-header">
+    <img src="${LOGO_PNG_URL}" alt="" width="${dim.w}" height="${dim.h}" class="brand-logo brand-logo--header" loading="eager" decoding="async" />
+    <span class="brand-header-text">
+      <span class="brand-header-name">${PRODUCT_NAME}</span>
+      <span class="brand-header-tagline">${PRODUCT_TAGLINE}</span>
+    </span>
+  </a>`;
 }
 
 export function renderProductFooter() {

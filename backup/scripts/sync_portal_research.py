@@ -123,6 +123,42 @@ def _library_label(archive_name: str) -> str:
     return Path(archive_name).stem.replace(".tar.gz", "").replace(".tar", "")
 
 
+def _pcos_treatment_arm(archive_name: str) -> str | None:
+    if "-C." in archive_name or archive_name.endswith("-C.tar"):
+        return "Control (C)"
+    if "-F." in archive_name or archive_name.endswith("-F.tar"):
+        return "Forskolin (F)"
+    return None
+
+
+def _scrna_deep_on_portal(dataset: str, archive_name: str) -> bool:
+    if dataset == "Endometrium":
+        return True
+    return "Mc26" in archive_name
+
+
+def _load_scrna_library_inventory() -> list[dict]:
+    csv_path = BACKUP / "scRNA_analysis" / "single_cell_sample_inventory.csv"
+    df = pd.read_csv(csv_path)
+    df["nnz_per_cell"] = pd.to_numeric(df["nnz_per_cell"], errors="coerce")
+    df["n_cells"] = pd.to_numeric(df["n_cells"], errors="coerce")
+    rows: list[dict] = []
+    for _, row in df.iterrows():
+        ds = str(row["dataset"])
+        archive = str(row["archive_in_zip"])
+        rows.append(
+            {
+                "dataset": "Endometrium" if ds == "Endometrium" else "PCOS ovarian",
+                "library": _library_label(archive),
+                "arm": _pcos_treatment_arm(archive),
+                "cells": int(row["n_cells"]),
+                "nnzPerCell": int(round(float(row["nnz_per_cell"]))),
+                "deepOnPortal": _scrna_deep_on_portal(ds, archive),
+            }
+        )
+    return rows
+
+
 def _slug_feature(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "_", name.strip().lower())
     return s.strip("_") or "lab"
@@ -369,6 +405,22 @@ def build_manifest() -> dict:
             "totalCells": total_cells,
         },
         "scrnaLibrarySamples": _load_scrna_library_samples(),
+        "scrnaLibraryInventory": _load_scrna_library_inventory(),
+        "scrnaDeepScope": {
+            "inventoryLibraries": 22,
+            "deepRunsOnPortal": 2,
+            "deepRunLabels": [
+                "Endometrium — combined UMAP / Leiden (both supplementary libraries)",
+                "PCOS Mc26 — control vs forskolin UMAP / androgen-pathway comparison",
+            ],
+            "summary": (
+                "All 22 published 10x libraries are inventoried below (genes × cells from MTX headers). "
+                "Full Scanpy QC, clustering, and UMAP on this page cover endometrium and the Mc26 donor pair "
+                "(representative forskolin stimulation design in the PCOS ovarian dataset). "
+                "The remaining 18 PCOS libraries share the same study design (10 donors × control/forskolin); "
+                "re-running deep analysis for every library is supported offline via backup/scripts/scrna_deep_analysis.py."
+            ),
+        },
         "labCohortReference": build_lab_reference(correlations, coef_df, pcos_vs_endo),
     }
 
@@ -424,6 +476,10 @@ def render_research_data_js(manifest: dict) -> str:
         }),
         "\n",
         _js_export("SCRNA_LIBRARY_SAMPLES", manifest["scrnaLibrarySamples"]),
+        "\n",
+        _js_export("SCRNA_LIBRARY_INVENTORY", manifest["scrnaLibraryInventory"]),
+        "\n",
+        _js_export("SCRNA_DEEP_SCOPE", manifest["scrnaDeepScope"]),
         "\n",
         _js_export("LAB_COHORT_REFERENCE", manifest["labCohortReference"]),
         "\n",
@@ -499,6 +555,10 @@ def copy_figures() -> list[str]:
             if fig and not (SCRNA_FIG / fig).is_file():
                 raise FileNotFoundError(f"Missing scRNA figure: {SCRNA_FIG / fig}")
         copied.append(f"patient-doctor-portal/research-figures/scrna/{run['figures']['umap']}")
+    inv_report = BACKUP / "scRNA_analysis" / "single_cell_inventory_report.html"
+    if inv_report.is_file():
+        shutil.copy2(inv_report, SCRNA_FIG / "inventory_report.html")
+        copied.append("patient-doctor-portal/research-figures/scrna/inventory_report.html")
     return copied
 
 
